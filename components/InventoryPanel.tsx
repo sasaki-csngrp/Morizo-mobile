@@ -187,30 +187,29 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
           </View>
         </View>
         
-        {/* コマンドボタン（新規追加、CSVアップロード、レシートOCR） */}
-        <View style={styles.addButtonContainer}>
-          <TouchableOpacity
-            onPress={handleAddNew}
-            style={styles.addButton}
-          >
-            <Text style={styles.addButtonText}>+ 新規追加</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setIsCSVUploadModalOpen(true)}
-            style={styles.csvUploadButton}
-          >
-            <Text style={styles.csvUploadButtonText}>📄 CSVアップロード</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setIsOCRModalOpen(true)}
-            style={styles.ocrButton}
-          >
-            <Text style={styles.ocrButtonText}>📷 レシート読み込み</Text>
-          </TouchableOpacity>
-        </View>
-        
         {/* 在庫リスト */}
         <ScrollView style={styles.content}>
+          {/* コマンドボタン（新規追加、CSVアップロード、レシートOCR） */}
+          <View style={styles.addButtonContainer}>
+            <TouchableOpacity
+              onPress={handleAddNew}
+              style={styles.addButton}
+            >
+              <Text style={styles.addButtonText}>+ 新規追加</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setIsCSVUploadModalOpen(true)}
+              style={styles.csvUploadButton}
+            >
+              <Text style={styles.csvUploadButtonText}>📄 CSVアップロード</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setIsOCRModalOpen(true)}
+              style={styles.ocrButton}
+            >
+              <Text style={styles.ocrButtonText}>📷 レシート読み込み</Text>
+            </TouchableOpacity>
+          </View>
           {isLoading ? (
             <View style={styles.centerContainer}>
               <ActivityIndicator size="large" color="#2563eb" />
@@ -329,6 +328,7 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingTop: 12,
     paddingBottom: 12,
+    marginBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
     backgroundColor: '#f9fafb',
@@ -396,22 +396,22 @@ const styles = StyleSheet.create({
     color: '#4b5563',
   },
   headerCellName: {
-    flex: 1.5,
+    flex: 2,
   },
   headerCellQuantity: {
     flex: 1,
     textAlign: 'right',
   },
   headerCellUnit: {
-    flex: 0.8,
-    textAlign: 'center',
+    flex: 1.2,
+    textAlign: 'left',
   },
   headerCellLocation: {
     flex: 1.2,
     textAlign: 'left',
   },
   headerCellDate: {
-    flex: 1.5,
+    flex: 1,
     textAlign: 'left',
   },
   headerCellActions: {
@@ -431,15 +431,15 @@ const styles = StyleSheet.create({
     color: '#1f2937',
   },
   cellName: {
-    flex: 1.5,
+    flex: 2,
   },
   cellQuantity: {
     flex: 1,
     textAlign: 'right',
   },
   cellUnit: {
-    flex: 0.8,
-    textAlign: 'center',
+    flex: 1.2,
+    textAlign: 'left',
     color: '#6b7280',
   },
   cellLocation: {
@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   cellDate: {
-    flex: 1.5,
+    flex: 1,
     color: '#6b7280',
   },
   cellActions: {

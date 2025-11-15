@@ -74,28 +74,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, on
             <Text style={styles.emailText}>{user?.email}</Text>
           </View>
 
-          {/* 履歴ボタン */}
-          <TouchableOpacity
-            style={styles.historyButton}
-            onPress={() => {
-              onOpenHistory();
-              onClose(); // プロフィールモーダルを閉じて履歴モーダルを開く
-            }}
-          >
-            <Text style={styles.historyButtonText}>📅 履歴</Text>
-          </TouchableOpacity>
-
-          {/* 在庫ボタン */}
-          <TouchableOpacity
-            style={styles.inventoryButton}
-            onPress={() => {
-              onOpenInventory();
-              onClose(); // プロフィールモーダルを閉じて在庫モーダルを開く
-            }}
-          >
-            <Text style={styles.inventoryButtonText}>📦 在庫</Text>
-          </TouchableOpacity>
-
           {/* トークンコピーボタン */}
           <TouchableOpacity
             style={styles.copyButton}
@@ -221,34 +199,6 @@ const styles = StyleSheet.create({
   emailText: {
     fontSize: 14,
     color: '#9ca3af',
-  },
-  historyButton: {
-    backgroundColor: '#d1d5db',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  historyButtonText: {
-    color: '#374151',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  inventoryButton: {
-    backgroundColor: '#d1d5db',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  inventoryButtonText: {
-    color: '#374151',
-    fontSize: 16,
-    fontWeight: '600',
   },
   copyButton: {
     backgroundColor: '#2563eb',

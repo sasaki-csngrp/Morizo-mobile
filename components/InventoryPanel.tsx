@@ -187,6 +187,28 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
           </View>
         </View>
         
+        {/* コマンドボタン（新規追加、CSVアップロード、レシートOCR） */}
+        <View style={styles.addButtonContainer}>
+          <TouchableOpacity
+            onPress={handleAddNew}
+            style={styles.addButton}
+          >
+            <Text style={styles.addButtonText}>+ 新規追加</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setIsCSVUploadModalOpen(true)}
+            style={styles.csvUploadButton}
+          >
+            <Text style={styles.csvUploadButtonText}>📄 CSVアップロード</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setIsOCRModalOpen(true)}
+            style={styles.ocrButton}
+          >
+            <Text style={styles.ocrButtonText}>📷 レシート読み込み</Text>
+          </TouchableOpacity>
+        </View>
+        
         {/* 在庫リスト */}
         <ScrollView style={styles.content}>
           {isLoading ? (
@@ -248,28 +270,6 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
               ))}
             </View>
           )}
-          
-          {/* 新規追加ボタン */}
-          <View style={styles.addButtonContainer}>
-            <TouchableOpacity
-              onPress={handleAddNew}
-              style={styles.addButton}
-            >
-              <Text style={styles.addButtonText}>+ 新規追加</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setIsCSVUploadModalOpen(true)}
-              style={styles.csvUploadButton}
-            >
-              <Text style={styles.csvUploadButtonText}>📄 CSVアップロード</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setIsOCRModalOpen(true)}
-              style={styles.ocrButton}
-            >
-              <Text style={styles.ocrButtonText}>📷 レシートOCR</Text>
-            </TouchableOpacity>
-          </View>
         </ScrollView>
         
         {/* 編集モーダル */}
@@ -324,6 +324,14 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
+  },
+  addButtonContainer: {
+    padding: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
   },
   filterGroup: {
     marginBottom: 16,
@@ -474,10 +482,6 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 12,
     fontWeight: '600',
-  },
-  addButtonContainer: {
-    padding: 16,
-    paddingTop: 24,
   },
   addButton: {
     backgroundColor: '#2563eb',

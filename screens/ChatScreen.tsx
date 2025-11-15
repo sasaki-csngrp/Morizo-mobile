@@ -91,10 +91,16 @@ function ChatScreenContent() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
-        {/* ユーザープロフィールセクション（アバターアイコンのみ） */}
+        {/* ユーザープロフィールセクション（在庫・履歴ボタンとアバターアイコン） */}
         <ProfileSection
           userEmail={user?.email}
           onPress={() => setIsProfileModalOpen(true)}
+          onOpenHistory={() => {
+            modalManagement.openHistoryPanel();
+          }}
+          onOpenInventory={() => {
+            modalManagement.openInventoryPanel();
+          }}
         />
 
         {/* チャット履歴エリア */}

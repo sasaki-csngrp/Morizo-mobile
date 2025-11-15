@@ -237,6 +237,8 @@ npx expo start --tunnel
 
 **重要**: リダイレクトURLが`localhost:3000`になっている場合、以下の設定を確認してください。
 
+**引っ越し後の設定（重要）**: 新しいSupabaseプロジェクトに移行した場合、以下の設定を**必ず**行ってください。
+
 1. **Supabase Dashboard** → **Authentication** → **URL Configuration**
    - **Site URL**: Web版のURL（例: `https://your-app.vercel.app`）を設定
    - **Redirect URLs**: 以下のURLを**必ず追加**してください：
@@ -246,19 +248,72 @@ npx expo start --tunnel
      exp://*.exp.direct/**
      ```
    - **注意**: 
-     - `localhost:3000`がRedirect URLsに含まれている場合、**削除**してください
-     - **Expo Goを使用している場合**、プロキシURL（`exp://*.exp.direct`）を追加する必要があります
-     - ワイルドカード（`*`）を使用して、すべてのExpo GoプロキシURLに対応できます
-     - または、モバイル用URLを**最初に**配置してください（優先順位の問題）
-     - 設定を保存後、**数分待つ**必要があります（反映に時間がかかります）
+     - ✅ `morizo-mobile://auth/callback`は**モバイル版に必須**です
+     - ✅ **Expo Goを使用している場合**、プロキシURL（`exp://*.exp.direct`）を追加する必要があります
+     - ✅ ワイルドカード（`*`）を使用して、すべてのExpo GoプロキシURLに対応できます
+     - ✅ モバイル用URLを**最初に**配置してください（優先順位の問題）
+     - ❌ **追加不要**: `https://loputwcsrmwgkeydxcba.supabase.co/auth/v1/callback`はSupabaseのデフォルトコールバックURLのため、明示的に追加する必要はありません（Web版で動作していることが証明されています）
+     - ❌ `localhost:3000`がRedirect URLsに含まれている場合、**削除**してください（開発環境では不要）
+     - ⏰ 設定を保存後、**5-10分待つ**必要があります（反映に時間がかかります）
 
-2. **Google OAuth設定**: Web版と同じGoogle OAuth設定を使用
-   - **注意**: Google Cloud Consoleで「Webアプリケーション」タイプのOAuth設定でも動作します
-   - Android専用の設定は不要（ただし、将来的に追加しても問題ありません）
+2. **Google Cloud ConsoleのOAuth設定**（Google Cloud Consoleでの設定も必要です）
+   
+   **設定場所**: [Google Cloud Console](https://console.cloud.google.com/) → **APIとサービス** → **認証情報** → OAuth 2.0 クライアントID
+   
+   **リダイレクトURIの設定**:
+   - **必須**: 以下のSupabaseのコールバックURLを追加してください：
+     ```
+     https://loputwcsrmwgkeydxcba.supabase.co/auth/v1/callback
+     ```
+   - **開発環境用（オプション）**: 開発環境でWeb版を`localhost:3000`で実行している場合のみ、以下を追加：
+     ```
+     http://localhost:3000/auth/callback
+     ```
+   
+   **重要**: 
+   - ❌ **追加不要**: カスタムスキーム（`morizo-mobile://auth/callback`）はGoogle Cloud Consoleに追加する必要は**ありません**
+   - ✅ **理由**: SupabaseがOAuthフローを処理し、Google Cloud ConsoleからSupabaseのコールバックURLにリダイレクトし、その後Supabaseがカスタムスキーム（`morizo-mobile://auth/callback`）にリダイレクトします
+   - ✅ **Web版と同じ設定**: 「Webアプリケーション」タイプのOAuth設定を使用します
+   - ✅ **Android専用設定は不要**: 将来的に追加しても問題ありませんが、現在は不要です
 
 #### **トラブルシューティング**
 
-**問題**: リダイレクト先が`localhost:3000`になる
+**問題1**: 引っ越し後、モバイルでGoogleログインができなくなった
+
+**原因**: 
+- 新しいSupabaseプロジェクトのRedirect URLsに`morizo-mobile://auth/callback`が追加されていない
+- Google Cloud ConsoleのOAuth設定が正しく移行されていない可能性
+
+**解決策**:
+
+**ステップ1: Supabase Dashboardでの設定（必須）**
+- **Supabase Dashboard** → **Authentication** → **URL Configuration** → **Redirect URLs**に以下を追加：
+  ```
+  morizo-mobile://auth/callback
+  exp://*.exp.direct
+  exp://*.exp.direct/**
+  ```
+- **注意**: `https://loputwcsrmwgkeydxcba.supabase.co/auth/v1/callback`はSupabaseのデフォルトコールバックURLのため、追加不要です（Web版で動作していることが証明されています）
+
+**ステップ2: Google Cloud Consoleでの設定（必須）**
+- **Google Cloud Console** → **APIとサービス** → **認証情報** → OAuth 2.0 クライアントIDを開く
+- **承認済みのリダイレクトURI**に以下を追加：
+  ```
+  https://loputwcsrmwgkeydxcba.supabase.co/auth/v1/callback
+  ```
+- **開発環境用（オプション）**: 開発環境でWeb版を使用する場合のみ以下も追加：
+  ```
+  http://localhost:3000/auth/callback
+  ```
+- **注意**: カスタムスキーム（`morizo-mobile://auth/callback`）はGoogle Cloud Consoleには追加**不要**です
+
+**ステップ3: 設定の反映を待つ**
+- 両方の設定を保存後、**5-10分待つ**（反映に時間がかかります）
+
+**ステップ4: アプリの再起動**
+- アプリを**完全に再起動**して再度試す
+
+**問題2**: リダイレクト先が`localhost:3000`になる
 
 **原因**: 
 - Supabase DashboardのRedirect URLs設定が正しく反映されていない

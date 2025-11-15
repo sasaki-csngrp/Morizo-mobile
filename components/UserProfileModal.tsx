@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, ActivityIndicator } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
-import * as Clipboard from 'expo-clipboard';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -11,9 +10,8 @@ interface UserProfileModalProps {
 }
 
 const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, onOpenHistory, onOpenInventory }) => {
-  const { user, session, signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [copySuccess, setCopySuccess] = useState(false);
 
   const handleSignOut = async () => {
     setLoading(true);
@@ -23,18 +21,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, on
       console.error('ログアウトエラー:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleCopyToken = async () => {
-    try {
-      if (session?.access_token) {
-        await Clipboard.setStringAsync(session.access_token);
-        setCopySuccess(true);
-        setTimeout(() => setCopySuccess(false), 2000);
-      }
-    } catch (error) {
-      console.error('トークンコピーエラー:', error);
     }
   };
 
@@ -73,18 +59,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, on
             <Text style={styles.statusText}>ログイン中</Text>
             <Text style={styles.emailText}>{user?.email}</Text>
           </View>
-
-          {/* トークンコピーボタン */}
-          <TouchableOpacity
-            style={styles.copyButton}
-            onPress={handleCopyToken}
-          >
-            <Text style={styles.copyButtonText}>トークンをコピー</Text>
-          </TouchableOpacity>
-          
-          {copySuccess && (
-            <Text style={styles.copySuccessText}>✓ コピーしました！</Text>
-          )}
 
           {/* ログアウトボタン */}
           <TouchableOpacity
@@ -199,25 +173,6 @@ const styles = StyleSheet.create({
   emailText: {
     fontSize: 14,
     color: '#9ca3af',
-  },
-  copyButton: {
-    backgroundColor: '#2563eb',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  copyButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  copySuccessText: {
-    color: '#22c55e',
-    fontSize: 14,
-    marginBottom: 12,
   },
   signOutButton: {
     backgroundColor: '#dc2626',

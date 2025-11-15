@@ -6,6 +6,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import { supabase } from '../supabase';
+import { getApiUrl } from '../api-config';
 import { StreamingMessage, StreamingState, ProgressData, UseStreamingConnectionProps } from './types';
 
 export function useStreamingConnection({
@@ -67,14 +68,6 @@ export function useStreamingConnection({
         abortControllerRef.current = abortController;
 
         // API URL設定
-        const getApiUrl = () => {
-          if (Platform.OS === 'web') {
-            return 'http://localhost:3000/api';
-          } else {
-            return 'http://192.168.1.12:3000/api';
-          }
-        };
-
         const apiUrl = `${getApiUrl()}/chat-stream/${sseSessionId}`;
         console.log('🔍 [useStreamingConnection] Fetching SSE endpoint:', apiUrl);
         console.log('🔍 [useStreamingConnection] About to call fetch...');

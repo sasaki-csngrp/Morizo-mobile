@@ -1,17 +1,7 @@
 import { RecipeAdoptionRequest, RecipeAdoptionItem, SelectionRequest, SelectionResponse } from '../types/menu';
-import { Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const getApiUrl = () => {
-  if (Platform.OS === 'web') {
-    // Web版（Webエミュレーター）
-    return 'http://localhost:3000/api';
-  } else {
-    // Expo Go版（実機）
-    return 'http://192.168.1.12:3000/api';
-  }
-};
+import { getApiUrl } from '../lib/api-config';
 
 // 認証付きfetch関数
 export async function authenticatedFetch(url: string, options: RequestInit = {}) {

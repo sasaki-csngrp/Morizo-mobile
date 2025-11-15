@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Platform } from 'react-native';
 import { ChatMessage } from '../types/chat';
 import { supabase } from '../lib/supabase';
 import { generateSSESessionId } from '../lib/session-manager';
 import { logAPI, logComponent } from '../lib/logging';
 import { showErrorAlert } from '../utils/alert';
+import { getApiUrl } from '../lib/api-config';
 
 /**
  * チャットメッセージ管理フック
@@ -19,17 +19,6 @@ export function useChatMessages(
   const [textMessage, setTextMessage] = useState<string>('');
   const [awaitingConfirmation, setAwaitingConfirmation] = useState<boolean>(false);
   const [confirmationSessionId, setConfirmationSessionId] = useState<string | null>(null);
-
-  // API URL設定
-  const getApiUrl = () => {
-    if (Platform.OS === 'web') {
-      // Web版（Webエミュレーター）
-      return 'http://localhost:3000/api';
-    } else {
-      // Expo Go版（実機）
-      return 'http://192.168.1.12:3000/api';
-    }
-  };
 
   const sendTextMessage = async () => {
     if (!textMessage.trim()) return;
@@ -181,7 +170,7 @@ export function useChatMessages(
     setConfirmationSessionId,
     sendTextMessage,
     clearChatHistory,
-    getApiUrl,
+    getApiUrl: () => getApiUrl(), // 共通関数をラップして返す
   };
 }
 

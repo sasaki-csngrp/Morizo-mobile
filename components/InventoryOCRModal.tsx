@@ -38,7 +38,7 @@ const InventoryOCRModal: React.FC<InventoryOCRModalProps> = ({
   onUploadComplete,
 }) => {
   // カスタムフックの使用
-  const { imageUri, selectImage, clearImage } = useImagePicker();
+  const { imageUri, selectImage, takePhoto, clearImage } = useImagePicker();
   const { ocrResult, isAnalyzing, analyzeImage, editableItems, setEditableItems, clearResult, registerMapping } = useOCRAnalysis();
   const { selectedItems, toggleItem, selectAll, clearSelection } = useItemSelection(editableItems);
   const { isRegistering, registerItems } = useItemRegistration(onUploadComplete);
@@ -72,6 +72,10 @@ const InventoryOCRModal: React.FC<InventoryOCRModalProps> = ({
   // イベントハンドラー
   const handleImageSelect = async () => {
     await selectImage();
+  };
+
+  const handleCameraPress = async () => {
+    await takePhoto();
   };
 
   const handleAnalyze = async () => {
@@ -141,6 +145,7 @@ const InventoryOCRModal: React.FC<InventoryOCRModalProps> = ({
                 <ImageSelector
                   imageUri={imageUri}
                   onSelect={handleImageSelect}
+                  onCameraPress={handleCameraPress}
                   disabled={isAnalyzing}
                 />
 

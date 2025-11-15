@@ -49,6 +49,43 @@ export function useImagePicker() {
   };
 
   /**
+   * カメラで写真を撮影する
+   */
+  const takePhoto = async () => {
+    try {
+      // カメラ権限をリクエスト
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('エラー', 'カメラへのアクセス権限が必要です');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const capturedImage = result.assets[0];
+        
+        // ファイル形式とサイズの検証
+        const validation = validateImage(capturedImage.uri, capturedImage.fileSize);
+        if (!validation.isValid) {
+          Alert.alert('エラー', validation.errors[0]);
+          return;
+        }
+
+        setImageUri(capturedImage.uri);
+      }
+    } catch (error) {
+      console.error('Camera capture failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'カメラ撮影に失敗しました';
+      Alert.alert('エラー', errorMessage);
+    }
+  };
+
+  /**
    * 選択した画像をクリアする
    */
   const clearImage = () => {
@@ -58,6 +95,7 @@ export function useImagePicker() {
   return {
     imageUri,
     selectImage,
+    takePhoto,
     clearImage,
   };
 }

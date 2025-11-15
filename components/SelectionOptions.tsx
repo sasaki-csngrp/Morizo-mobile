@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Platform } from 'react-native';
 import { RecipeCandidate } from '../types/menu';
 import { sendSelection, authenticatedFetch } from '../api/recipe-api';
+import { getApiUrl } from '../lib/api-config';
 
 interface SelectionOptionsProps {
   candidates: RecipeCandidate[];
@@ -72,14 +73,6 @@ const SelectionOptions: React.FC<SelectionOptionsProps> = ({
     
     try {
       // API URLを取得
-      const getApiUrl = () => {
-        if (Platform.OS === 'web') {
-          return 'http://localhost:3000/api';
-        } else {
-          return 'http://192.168.1.12:3000/api';
-        }
-      };
-      
       const apiUrl = `${getApiUrl()}/chat/selection`;
       
       // バックエンドに追加提案を要求（新しいSSEセッションID + 旧セッションIDを送信）

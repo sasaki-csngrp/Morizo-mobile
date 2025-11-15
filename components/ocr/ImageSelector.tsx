@@ -4,6 +4,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 interface ImageSelectorProps {
   imageUri: string | null;
   onSelect: () => void;
+  onCameraPress?: () => void;
   disabled?: boolean;
 }
 
@@ -19,6 +20,7 @@ interface ImageSelectorProps {
 const ImageSelector: React.FC<ImageSelectorProps> = ({
   imageUri,
   onSelect,
+  onCameraPress,
   disabled = false,
 }) => {
   return (
@@ -31,6 +33,15 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
       >
         <Text style={styles.imageButtonText}>画像を選択</Text>
       </TouchableOpacity>
+      {onCameraPress && (
+        <TouchableOpacity
+          onPress={onCameraPress}
+          disabled={disabled}
+          style={[styles.cameraButton, disabled && styles.imageButtonDisabled]}
+        >
+          <Text style={styles.imageButtonText}>カメラ起動</Text>
+        </TouchableOpacity>
+      )}
       {imageUri && (
         <Text style={styles.fileInfo}>画像が選択されました</Text>
       )}
@@ -50,6 +61,14 @@ const styles = StyleSheet.create({
   },
   imageButton: {
     backgroundColor: '#2563eb',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  cameraButton: {
+    backgroundColor: '#059669',
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,

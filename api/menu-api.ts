@@ -1,13 +1,5 @@
-import { Platform } from 'react-native';
 import { authenticatedFetch } from './recipe-api';
-
-const getApiUrl = () => {
-  if (Platform.OS === 'web') {
-    return 'http://localhost:3000/api';
-  } else {
-    return 'http://192.168.1.12:3000/api';
-  }
-};
+import { getApiUrl } from '../lib/api-config';
 
 // 献立保存API（選択済みレシピを直接送信）
 export async function saveMenu(recipes: {

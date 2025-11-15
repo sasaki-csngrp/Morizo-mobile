@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { showErrorAlert, showSuccessAlert } from '../utils/alert';
 import { logAPI, logComponent, LogCategory } from '../lib/logging';
+import { getApiUrl } from '../lib/api-config';
 // import { runAllTests } from '../tests';
 
 export default function MainScreen() {
@@ -38,21 +39,9 @@ export default function MainScreen() {
     return null;
   }
 
-  // API URL設定
-  const getApiUrl = () => {
-    if (__DEV__) {
-      // 開発環境
-      if (Platform.OS === 'web') {
-        // Webブラウザで実行中
-        return 'http://localhost:3000/api/test';
-      } else {
-        // 実機で実行中（Expo Go）
-        return 'http://192.168.1.12:3000/api/test';
-      }
-    } else {
-      // 本番環境
-      return 'https://morizo-web.vercel.app/api/test';
-    }
+  // API URL設定（テストエンドポイント用）
+  const getTestApiUrl = () => {
+    return `${getApiUrl()}/test`;
   };
 
   const callAPI = async () => {
@@ -61,7 +50,7 @@ export default function MainScreen() {
     setApiResponse('');
     
     try {
-      const apiUrl = getApiUrl();
+      const apiUrl = getTestApiUrl();
       logAPI('callAPI', 'GET', apiUrl, {}, 0, 'API呼び出し開始');
       
       // 認証トークンを取得

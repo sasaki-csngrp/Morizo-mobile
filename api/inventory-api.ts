@@ -1,14 +1,6 @@
-import { Platform } from 'react-native';
 import { authenticatedFetch } from './recipe-api';
 import { supabase } from '../lib/supabase';
-
-const getApiUrl = () => {
-  if (Platform.OS === 'web') {
-    return 'http://localhost:3000/api';
-  } else {
-    return 'http://192.168.1.12:3000/api';
-  }
-};
+import { getApiUrl } from '../lib/api-config';
 
 export interface InventoryItem {
   id: string;

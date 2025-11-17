@@ -43,3 +43,6 @@ yarn-error.*
 
 # me2you
 /me2you
+
+# Serena
+.serena

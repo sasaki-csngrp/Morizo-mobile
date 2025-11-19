@@ -4,20 +4,18 @@
  * Open Graph メタデータやHTMLから画像URLを取得
  */
 
-import { Platform } from 'react-native';
+import { getApiUrl } from './api-config';
 
 /**
  * URLから画像を抽出する関数（タイムアウト付き）
  */
 export async function extractImageFromUrl(url: string): Promise<string | null> {
   try {
-    // API URLを環境に応じて設定
-    const baseUrl = Platform.OS === 'web' 
-      ? 'http://localhost:3000' 
-      : 'http://192.168.1.12:3000';
+    // API URLを環境に応じて設定（開発/本番環境を自動判定）
+    const apiBaseUrl = getApiUrl().replace('/api', ''); // /api を除去してベースURLを取得
     
     // CORS対応のため、プロキシ経由でアクセス
-    const proxyUrl = `${baseUrl}/api/image-proxy?url=${encodeURIComponent(url)}`;
+    const proxyUrl = `${apiBaseUrl}/api/image-proxy?url=${encodeURIComponent(url)}`;
     
     // タイムアウト付きのfetch
     const controller = new AbortController();

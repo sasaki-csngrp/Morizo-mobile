@@ -113,8 +113,8 @@ const RecipeListModal: React.FC<RecipeListModalProps> = ({
                       candidate.source === 'rag' && styles.sourceBadgeRAG,
                       candidate.source === 'web' && styles.sourceBadgeWeb
                     ]}>
-                      {candidate.source === 'llm' ? 'LLM提案' : 
-                       candidate.source === 'rag' ? 'RAG検索' : 'Web検索'}
+                      {candidate.source === 'llm' ? '斬新提案' : 
+                       candidate.source === 'rag' ? '伝統提案' : 'Web検索'}
                     </Text>
                   </View>
                 )}

@@ -35,6 +35,7 @@ export function useStreamingConnection({
   const lastValidResultRef = useRef<unknown>(null);
   const isConnectingRef = useRef<boolean>(false);
   const isAbortedRef = useRef<boolean>(false);
+  const maxRetries = 3;
 
   useEffect(() => {
     // Hot Reloadによる重複実行を防ぐ
@@ -43,7 +44,7 @@ export function useStreamingConnection({
       return;
     }
 
-    const connectToStream = async () => {
+    const connectToStream = async (retryAttempt: number = 0) => {
       // 既存の接続をクリーンアップ
       if (abortControllerRef.current) {
         isAbortedRef.current = true;
@@ -54,6 +55,17 @@ export function useStreamingConnection({
       isAbortedRef.current = false;
 
       try {
+        // リトライ時は指数バックオフで待機（初回はサーバー処理開始を待つ）
+        if (retryAttempt > 0) {
+          const delay = Math.min(1000 * Math.pow(2, retryAttempt - 1), 5000);
+          console.log(`🔍 [useStreamingConnection] Retry attempt ${retryAttempt}/${maxRetries}, waiting ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          // 初回接続時はサーバー側の処理開始を待つ（1秒待機）
+          console.log('🔍 [useStreamingConnection] Waiting for server to start processing...');
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+
         console.log('🔍 [useStreamingConnection] Getting auth token');
         
         // Supabaseから認証トークンを取得
@@ -70,7 +82,7 @@ export function useStreamingConnection({
         // API URL設定
         const apiUrl = `${getApiUrl()}/chat-stream/${sseSessionId}`;
         console.log('🔍 [useStreamingConnection] Fetching SSE endpoint:', apiUrl);
-        console.log('🔍 [useStreamingConnection] About to call fetch...');
+        console.log(`🔍 [useStreamingConnection] Attempt ${retryAttempt + 1}/${maxRetries + 1}, about to call fetch...`);
         
         // SSEメッセージ処理（共通ロジック）
         const processSSEMessages = (chunk: string) => {
@@ -233,7 +245,7 @@ export function useStreamingConnection({
             xhr.setRequestHeader('Authorization', `Bearer ${token}`);
             xhr.setRequestHeader('Accept', 'text/event-stream');
             xhr.setRequestHeader('Cache-Control', 'no-cache');
-            xhr.timeout = 30000; // 30秒タイムアウト
+            xhr.timeout = 90000; // 90秒タイムアウト（本番環境の処理時間を考慮）
 
             xhr.onprogress = () => {
               try {
@@ -309,30 +321,42 @@ export function useStreamingConnection({
         // Platform判定でSSE実装を切り替え
         if (Platform.OS === 'web') {
           // Web環境: fetch + ReadableStream実装
-          const response = await fetch(apiUrl, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${session.access_token}`,
-              'Accept': 'text/event-stream',
-              'Cache-Control': 'no-cache',
-            },
-            signal: abortController.signal,
-          });
-          
-          console.log('🔍 [useStreamingConnection] Fetch completed!');
-          console.log('🔍 [useStreamingConnection] SSE response status:', response.status);
-          console.log('🔍 [useStreamingConnection] SSE response ok:', response.ok);
+          // タイムアウト用のAbortController（90秒）
+          const timeoutId = setTimeout(() => {
+            abortController.abort();
+          }, 90000);
 
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          try {
+            const response = await fetch(apiUrl, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+                'Accept': 'text/event-stream',
+                'Cache-Control': 'no-cache',
+              },
+              signal: abortController.signal,
+            });
+            
+            clearTimeout(timeoutId);
+            
+            console.log('🔍 [useStreamingConnection] Fetch completed!');
+            console.log('🔍 [useStreamingConnection] SSE response status:', response.status);
+            console.log('🔍 [useStreamingConnection] SSE response ok:', response.ok);
+
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const reader = response.body?.getReader();
+            if (!reader) {
+              throw new Error('ストリームリーダーが取得できませんでした');
+            }
+
+            await processStreamWithReader(reader);
+          } catch (error) {
+            clearTimeout(timeoutId);
+            throw error;
           }
-
-          const reader = response.body?.getReader();
-          if (!reader) {
-            throw new Error('ストリームリーダーが取得できませんでした');
-          }
-
-          await processStreamWithReader(reader);
         } else {
           // Native環境（Android/iOS）: XMLHttpRequest実装
           await processStreamWithXHR(apiUrl, session.access_token, abortController);
@@ -343,22 +367,48 @@ export function useStreamingConnection({
         console.log('🔍 [useStreamingConnection] Error caught:', error);
         // Hot Reloadによる中断は無視
         if (!isAbortedRef.current && !(error instanceof DOMException && error.name === 'AbortError')) {
-          console.error('ストリーミング接続エラー:', error);
+          const errorMessage = error instanceof Error ? error.message : '接続エラーが発生しました';
+          console.error('ストリーミング接続エラー:', {
+            error: errorMessage,
+            attempt: retryAttempt + 1,
+            maxRetries: maxRetries,
+            errorType: error instanceof Error ? error.constructor.name : 'Unknown'
+          });
+
+          // ネットワークエラーまたはタイムアウトの場合はリトライ
+          const isRetryableError = 
+            errorMessage.includes('ネットワークエラー') ||
+            errorMessage.includes('タイムアウト') ||
+            errorMessage.includes('Network request failed') ||
+            (error instanceof TypeError && error.message.includes('Network'));
+
+          if (isRetryableError && retryAttempt < maxRetries) {
+            console.log(`🔍 [useStreamingConnection] Retryable error detected, will retry (${retryAttempt + 1}/${maxRetries})`);
+            // リトライ
+            isConnectingRef.current = false;
+            connectToStream(retryAttempt + 1);
+            return;
+          }
+
+          // リトライ不能または最大リトライ回数に達した場合
           setState(prev => ({
             ...prev,
-            error: error instanceof Error ? error.message : '接続エラーが発生しました'
+            error: errorMessage
           }));
-          onError(error instanceof Error ? error.message : '接続エラーが発生しました');
+          onError(errorMessage);
         } else {
           console.log('🔍 [useStreamingConnection] AbortError ignored (likely Hot Reload)');
         }
       } finally {
         console.log('🔍 [useStreamingConnection] Finally block executed');
-        isConnectingRef.current = false;
+        // リトライ中でない場合のみ接続状態をリセット
+        if (!isConnectingRef.current || retryAttempt >= maxRetries) {
+          isConnectingRef.current = false;
+        }
       }
     };
 
-    connectToStream();
+    connectToStream(0);
 
     // クリーンアップ関数
     return () => {

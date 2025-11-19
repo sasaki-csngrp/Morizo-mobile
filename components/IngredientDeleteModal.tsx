@@ -29,6 +29,7 @@ const IngredientDeleteModal: React.FC<IngredientDeleteModalProps> = ({
   const [candidates, setCandidates] = useState<IngredientDeleteCandidate[]>([]);
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [quantityInputs, setQuantityInputs] = useState<Record<string, string>>({}); // 入力中の文字列を保持
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +43,7 @@ const IngredientDeleteModal: React.FC<IngredientDeleteModalProps> = ({
       setCandidates([]);
       setCheckedItems({});
       setQuantities({});
+      setQuantityInputs({});
       setError(null);
     }
   }, [isOpen, date]);
@@ -55,14 +57,18 @@ const IngredientDeleteModal: React.FC<IngredientDeleteModalProps> = ({
       // 初期状態: すべてチェック、変更後数量 = 変更前数量 - 1（最小0）
       const initialChecked: Record<string, boolean> = {};
       const initialQuantities: Record<string, number> = {};
+      const initialInputs: Record<string, string> = {};
       result.forEach((candidate) => {
         initialChecked[candidate.inventory_id] = true;
         // 変更前数量 - 1、最小0
         const newQuantity = Math.max(0, candidate.current_quantity - 1);
         initialQuantities[candidate.inventory_id] = newQuantity;
+        // 入力値も文字列として初期化
+        initialInputs[candidate.inventory_id] = newQuantity.toString();
       });
       setCheckedItems(initialChecked);
       setQuantities(initialQuantities);
+      setQuantityInputs(initialInputs);
     } catch (err) {
       console.error('Failed to load candidates:', err);
       const errorMessage = err instanceof Error ? err.message : '削除候補の取得に失敗しました';
@@ -81,11 +87,64 @@ const IngredientDeleteModal: React.FC<IngredientDeleteModalProps> = ({
   };
 
   const handleQuantityChange = (inventoryId: string, quantity: string) => {
-    const numValue = parseFloat(quantity) || 0;
-    setQuantities((prev) => ({
-      ...prev,
-      [inventoryId]: Math.max(0, numValue),
-    }));
+    // 小数点以下1桁までに制限する正規表現
+    const decimalPattern = /^\d*\.?\d{0,1}$/;
+    
+    // 空文字列や"."のみの場合は許可（入力中状態）
+    if (quantity === '' || quantity === '.' || decimalPattern.test(quantity)) {
+      // 入力中の文字列をそのまま保持
+      setQuantityInputs((prev) => ({
+        ...prev,
+        [inventoryId]: quantity,
+      }));
+      
+      // 有効な数値の場合のみ、数値としても保存
+      if (quantity !== '' && quantity !== '.') {
+        const numValue = parseFloat(quantity);
+        if (!isNaN(numValue)) {
+          // 小数点以下1桁に丸める
+          const roundedValue = Math.round(numValue * 10) / 10;
+          setQuantities((prev) => ({
+            ...prev,
+            [inventoryId]: Math.max(0, roundedValue),
+          }));
+        }
+      }
+    }
+    // 不正な入力の場合は前の値を保持（何もしない）
+  };
+
+  // フォーカスが外れた時に数値を正規化
+  const handleQuantityBlur = (inventoryId: string) => {
+    const inputValue = quantityInputs[inventoryId] || '';
+    if (inputValue === '' || inputValue === '.') {
+      // 空文字列や"."のみの場合は0に設定
+      setQuantityInputs((prev) => ({
+        ...prev,
+        [inventoryId]: '0',
+      }));
+      setQuantities((prev) => ({
+        ...prev,
+        [inventoryId]: 0,
+      }));
+    } else {
+      // 有効な数値に変換して正規化
+      const numValue = parseFloat(inputValue);
+      if (!isNaN(numValue)) {
+        const roundedValue = Math.round(Math.max(0, numValue) * 10) / 10;
+        const formattedValue = roundedValue % 1 === 0 
+          ? roundedValue.toString() 
+          : roundedValue.toFixed(1);
+        setQuantityInputs((prev) => ({
+          ...prev,
+          [inventoryId]: formattedValue,
+        }));
+        setQuantities((prev) => ({
+          ...prev,
+          [inventoryId]: roundedValue,
+        }));
+      }
+    }
   };
 
   const handleDelete = async () => {
@@ -232,12 +291,13 @@ const IngredientDeleteModal: React.FC<IngredientDeleteModalProps> = ({
                             styles.quantityInput,
                             !isChecked && styles.quantityInputDisabled,
                           ]}
-                          value={isChecked ? newQuantity.toString() : ''}
+                          value={isChecked ? (quantityInputs[candidate.inventory_id] ?? newQuantity.toString()) : ''}
                           onChangeText={(value) =>
                             handleQuantityChange(candidate.inventory_id, value)
                           }
+                          onBlur={() => handleQuantityBlur(candidate.inventory_id)}
                           editable={isChecked && !isDeleting}
-                          keyboardType="numeric"
+                          keyboardType="decimal-pad"
                           placeholder={isChecked ? '数量' : ''}
                           placeholderTextColor="#999"
                         />

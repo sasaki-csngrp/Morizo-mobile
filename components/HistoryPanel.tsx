@@ -188,6 +188,15 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, onClose }) => {
             </View>
           )}
         </ScrollView>
+        
+        {/* 画面一番下の閉じるボタン */}
+        <TouchableOpacity 
+          onPress={onClose}
+          style={styles.bottomCloseButton}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.bottomCloseButtonText}>閉じる</Text>
+        </TouchableOpacity>
       </View>
 
       {/* 食材削除モーダル */}
@@ -347,6 +356,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#92400e',
     marginTop: 4,
+  },
+  bottomCloseButton: {
+    backgroundColor: '#2563eb',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#1e40af',
+  },
+  bottomCloseButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

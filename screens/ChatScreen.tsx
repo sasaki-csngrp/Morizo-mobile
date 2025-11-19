@@ -174,6 +174,7 @@ function ChatScreenContent() {
         onClose={modalManagement.closeListModal}
         candidates={modalManagement.listModalCandidates}
         currentStage={modalManagement.listModalCurrentStage}
+        selectionInfo={modalManagement.listModalSelectionInfo}
       />
 
       {/* Phase 3.2: 履歴パネル */}

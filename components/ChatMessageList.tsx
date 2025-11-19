@@ -6,6 +6,7 @@ import StreamingProgress from './streaming/StreamingProgress';
 import SelectionOptions from './SelectionOptions';
 import SelectedRecipeCard from './SelectedRecipeCard';
 import { isMenuResponse } from '../lib/menu-parser';
+import { RecipeListModalSelectionInfo } from '../hooks/useModalManagement';
 
 interface ChatMessageListProps {
   chatMessages: ChatMessage[];
@@ -22,7 +23,8 @@ interface ChatMessageListProps {
   onSaveMenu: () => void;
   onClearHistory: () => void;
   onSelect: (selection: number, selectionResult?: any) => void;
-  onViewList: (candidates: RecipeCandidate[], currentStage?: 'main' | 'sub' | 'soup') => void;
+  // Phase 2.5: selectionInfoを渡せるように型を拡張（後方互換性のため、currentStageも受け取れる）
+  onViewList: (candidates: RecipeCandidate[], selectionInfo?: RecipeListModalSelectionInfo | 'main' | 'sub' | 'soup') => void;
   onRequestMore: (sseSessionId: string) => void;
   onNextStageRequested: (sseSessionId?: string) => void;
   onOpenRecipeViewer: (response: string, result?: unknown) => void;
@@ -116,7 +118,10 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({
                         usedIngredients={message.usedIngredients}
                         menuCategory={message.menuCategory}
                         onNextStageRequested={onNextStageRequested}
-                        onViewList={(candidates) => onViewList(candidates, message.currentStage)}
+                        onViewList={(candidates, selectionInfo) => {
+                          // selectionInfoが渡された場合はそれを使い、なければcurrentStageを使う（後方互換性）
+                          onViewList(candidates, selectionInfo || message.currentStage);
+                        }}
                         onRequestMore={onRequestMore}
                         isLatestSelection={index === chatMessages.length - 1 || chatMessages.slice(index + 1).every(msg => !msg.requiresSelection)}
                       />

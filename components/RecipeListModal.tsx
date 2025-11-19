@@ -1,9 +1,10 @@
 /**
  * RecipeListModal - レシピ一覧モーダル
  * Phase 2.3: レシピ一覧表示機能
+ * Phase 2.5: 段階的提案の選択機能を追加
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -12,23 +13,37 @@ import {
   TouchableOpacity,
   StyleSheet,
   Linking,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { RecipeCandidate } from '../types/menu';
 import ImageHandler from './ImageHandler';
+import { RecipeListModalSelectionInfo } from '../hooks/useModalManagement';
+import { sendSelection } from '../api/recipe-api';
 
 interface RecipeListModalProps {
   isOpen: boolean;
   onClose: () => void;
   candidates: RecipeCandidate[];
   currentStage?: 'main' | 'sub' | 'soup';
+  selectionInfo?: RecipeListModalSelectionInfo | null;
 }
 
 const RecipeListModal: React.FC<RecipeListModalProps> = ({
   isOpen,
   onClose,
   candidates,
-  currentStage
+  currentStage,
+  selectionInfo
 }) => {
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [isConfirming, setIsConfirming] = useState<boolean>(false);
+  const [showStageConfirmation, setShowStageConfirmation] = useState<boolean>(false);
+  const [confirmationData, setConfirmationData] = useState<{
+    message: string;
+    nextStageName: string;
+  } | null>(null);
+
   const stageLabel = currentStage === 'main' ? '主菜' : currentStage === 'sub' ? '副菜' : currentStage === 'soup' ? '汁物' : '';
   
   const getTitle = () => {
@@ -37,6 +52,80 @@ const RecipeListModal: React.FC<RecipeListModalProps> = ({
     }
     return `レシピ提案（${candidates.length}件）`;
   };
+
+  // 決定ボタンのクリックハンドラー
+  const handleConfirm = async () => {
+    if (!selectionInfo || selectedIndex === null) return;
+    
+    // 確認ダイアログが表示されている場合は処理をスキップ
+    if (showStageConfirmation) {
+      return;
+    }
+    
+    // SSEセッションIDの検証
+    if (!selectionInfo.sseSessionId || selectionInfo.sseSessionId === 'unknown') {
+      Alert.alert('エラー', 'セッション情報が無効です。ページを再読み込みしてください。');
+      return;
+    }
+    
+    setIsConfirming(true);
+    
+    try {
+      // バックエンドに選択結果を送信
+      const result = await sendSelection(
+        selectionInfo.taskId,
+        selectedIndex + 1, // 1-based index
+        selectionInfo.sseSessionId
+      );
+      
+      if (result.success) {
+        // 選択結果を親コンポーネントに通知
+        selectionInfo.onSelect(selectedIndex + 1, result);
+        
+        // 確認ステップが必要な場合
+        if (result.requires_stage_confirmation && result.confirmation_message && result.next_stage_name) {
+          setConfirmationData({
+            message: result.confirmation_message,
+            nextStageName: result.next_stage_name
+          });
+          setShowStageConfirmation(true);
+          setIsConfirming(false);
+          return;
+        }
+        
+        // 確認ステップが不要な場合
+        if (result.requires_next_stage && selectionInfo.onNextStageRequested) {
+          selectionInfo.onNextStageRequested(selectionInfo.sseSessionId);
+        }
+        
+        // モーダルを閉じる
+        handleClose();
+      } else {
+        throw new Error(result.error || 'Selection failed');
+      }
+    } catch (error) {
+      console.error('Selection failed:', error);
+      Alert.alert('エラー', '選択に失敗しました。もう一度お試しください。');
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
+  // モーダルが閉じる時に選択状態をリセット
+  const handleClose = () => {
+    setSelectedIndex(null);
+    setShowStageConfirmation(false);
+    setConfirmationData(null);
+    onClose();
+  };
+
+  // デバッグ用: selectionInfoの状態を確認
+  React.useEffect(() => {
+    if (isOpen) {
+      console.log('[RecipeListModal] selectionInfo:', selectionInfo);
+      console.log('[RecipeListModal] currentStage:', currentStage);
+    }
+  }, [isOpen, selectionInfo, currentStage]);
 
   if (!isOpen) return null;
 
@@ -50,8 +139,15 @@ const RecipeListModal: React.FC<RecipeListModalProps> = ({
       <View style={styles.container}>
         {/* ヘッダー */}
         <View style={styles.header}>
-          <Text style={styles.title}>{getTitle()}</Text>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.title}>{getTitle()}</Text>
+            {selectionInfo && selectedIndex !== null && (
+              <Text style={styles.selectedIndicator}>
+                {selectedIndex + 1}番のレシピを選択中
+              </Text>
+            )}
+          </View>
+          <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
             <Text style={styles.closeButtonText}>✕</Text>
           </TouchableOpacity>
         </View>
@@ -60,7 +156,18 @@ const RecipeListModal: React.FC<RecipeListModalProps> = ({
         <ScrollView style={styles.content}>
           <View style={styles.grid}>
             {candidates.map((candidate, index) => (
-              <View key={index} style={styles.recipeCard}>
+              <TouchableOpacity
+                key={index}
+                onPress={() => {
+                  if (selectionInfo) {
+                    setSelectedIndex(selectedIndex === index ? null : index);
+                  }
+                }}
+                style={[
+                  styles.recipeCard,
+                  selectionInfo && selectedIndex === index && styles.recipeCardSelected
+                ]}
+              >
                 {/* 画像表示 */}
                 {candidate.urls && candidate.urls.length > 0 && (
                   <View style={styles.imageContainer}>
@@ -73,9 +180,21 @@ const RecipeListModal: React.FC<RecipeListModalProps> = ({
                 )}
                 
                 {/* レシピタイトル */}
-                <Text style={styles.recipeTitle}>
-                  {index + 1}. {candidate.title}
-                </Text>
+                <View style={styles.recipeTitleContainer}>
+                  {selectionInfo && (
+                    <View style={styles.radioContainer}>
+                      <View style={[
+                        styles.radio,
+                        selectedIndex === index && styles.radioSelected
+                      ]}>
+                        {selectedIndex === index && <View style={styles.radioInner} />}
+                      </View>
+                    </View>
+                  )}
+                  <Text style={styles.recipeTitle}>
+                    {index + 1}. {candidate.title}
+                  </Text>
+                </View>
                 
                 {/* 食材情報 */}
                 {candidate.ingredients && candidate.ingredients.length > 0 && (
@@ -118,14 +237,67 @@ const RecipeListModal: React.FC<RecipeListModalProps> = ({
                     </Text>
                   </View>
                 )}
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         </ScrollView>
 
+        {/* 段階遷移確認ダイアログ */}
+        {showStageConfirmation && confirmationData && (
+          <View style={styles.confirmationContainer}>
+            <Text style={styles.confirmationMessage}>
+              {confirmationData.message}
+            </Text>
+            <View style={styles.confirmationButtons}>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowStageConfirmation(false);
+                  setConfirmationData(null);
+                  if (selectionInfo?.onNextStageRequested) {
+                    selectionInfo.onNextStageRequested(selectionInfo.sseSessionId);
+                  }
+                  handleClose();
+                }}
+                style={styles.confirmationButton}
+              >
+                <Text style={styles.confirmationButtonText}>進む</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowStageConfirmation(false);
+                  setConfirmationData(null);
+                  handleClose();
+                }}
+                style={[styles.confirmationButton, styles.confirmationButtonCancel]}
+              >
+                <Text style={styles.confirmationButtonText}>キャンセル</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* フッター */}
         <View style={styles.footer}>
-          <TouchableOpacity onPress={onClose} style={styles.closeFooterButton}>
+          {selectionInfo && (
+            <TouchableOpacity
+              onPress={handleConfirm}
+              disabled={selectedIndex === null || isConfirming || selectionInfo.isLoading || showStageConfirmation}
+              style={[
+                styles.confirmButton,
+                (selectedIndex === null || isConfirming || selectionInfo.isLoading || showStageConfirmation) && styles.confirmButtonDisabled
+              ]}
+            >
+              {isConfirming ? (
+                <View style={styles.confirmButtonContent}>
+                  <ActivityIndicator size="small" color="#ffffff" style={styles.confirmButtonSpinner} />
+                  <Text style={styles.confirmButtonText}>確定中...</Text>
+                </View>
+              ) : (
+                <Text style={styles.confirmButtonText}>このレシピを決定</Text>
+              )}
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={handleClose} style={styles.closeFooterButton}>
             <Text style={styles.closeFooterButtonText}>閉じる</Text>
           </TouchableOpacity>
         </View>
@@ -147,10 +319,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
+  headerTitleContainer: {
+    flex: 1,
+  },
   title: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#1F2937',
+  },
+  selectedIndicator: {
+    fontSize: 12,
+    color: '#2563EB',
+    marginTop: 4,
   },
   closeButton: {
     width: 32,
@@ -178,6 +358,37 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E5E7EB',
+  },
+  recipeCardSelected: {
+    borderColor: '#2563EB',
+    borderWidth: 2,
+    backgroundColor: '#EFF6FF',
+  },
+  recipeTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  radioContainer: {
+    marginRight: 8,
+  },
+  radio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#9CA3AF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioSelected: {
+    borderColor: '#2563EB',
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#2563EB',
   },
   imageContainer: {
     marginBottom: 12,
@@ -232,6 +443,59 @@ const styles = StyleSheet.create({
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
+    gap: 12,
+  },
+  confirmButton: {
+    backgroundColor: '#2563EB',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  confirmButtonDisabled: {
+    backgroundColor: '#9CA3AF',
+  },
+  confirmButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  confirmButtonSpinner: {
+    marginRight: 8,
+  },
+  confirmButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmationContainer: {
+    padding: 16,
+    backgroundColor: '#EFF6FF',
+    borderTopWidth: 1,
+    borderTopColor: '#BFDBFE',
+  },
+  confirmationMessage: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1F2937',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  confirmationButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'center',
+  },
+  confirmationButton: {
+    backgroundColor: '#2563EB',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    flex: 1,
+  },
+  confirmationButtonCancel: {
+    backgroundColor: '#9CA3AF',
   },
   closeFooterButton: {
     backgroundColor: '#9CA3AF',

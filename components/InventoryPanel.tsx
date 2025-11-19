@@ -271,6 +271,15 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
           )}
         </ScrollView>
         
+        {/* 画面一番下の閉じるボタン */}
+        <TouchableOpacity 
+          onPress={onClose}
+          style={styles.bottomCloseButton}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.bottomCloseButtonText}>閉じる</Text>
+        </TouchableOpacity>
+        
         {/* 編集モーダル */}
         <InventoryEditModal
           isOpen={isEditModalOpen}
@@ -519,6 +528,19 @@ const styles = StyleSheet.create({
   ocrButtonText: {
     color: '#ffffff',
     fontSize: 14,
+    fontWeight: '600',
+  },
+  bottomCloseButton: {
+    backgroundColor: '#2563eb',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#1e40af',
+  },
+  bottomCloseButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
     fontWeight: '600',
   },
 });

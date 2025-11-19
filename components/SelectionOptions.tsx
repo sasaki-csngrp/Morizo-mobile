@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Pla
 import { RecipeCandidate } from '../types/menu';
 import { sendSelection, authenticatedFetch } from '../api/recipe-api';
 import { getApiUrl } from '../lib/api-config';
+import { RecipeListModalSelectionInfo } from '../hooks/useModalManagement';
 
 interface SelectionOptionsProps {
   candidates: RecipeCandidate[];
@@ -17,7 +18,8 @@ interface SelectionOptionsProps {
   // Phase 2.1修正: 次の段階リクエスト用のコールバック
   onNextStageRequested?: (sseSessionId?: string) => void;
   // Phase 2.3: レシピ一覧表示用のコールバック
-  onViewList?: (candidates: RecipeCandidate[]) => void;
+  // Phase 2.5: selectionInfoを渡せるように型を拡張
+  onViewList?: (candidates: RecipeCandidate[], selectionInfo?: RecipeListModalSelectionInfo) => void;
   // Phase 2.4: 他の提案を見る機能
   onRequestMore?: (sseSessionId: string) => void;
   isLatestSelection?: boolean;
@@ -49,9 +51,21 @@ const SelectionOptions: React.FC<SelectionOptionsProps> = ({
   } | null>(null);
 
   // Phase 2.3: レシピ一覧を見るハンドラー
+  // Phase 2.5: 段階的提案の場合、選択に必要な情報も一緒に渡す
   const handleViewList = () => {
     if (onViewList) {
-      onViewList(candidates);
+      // 段階的提案の場合、選択に必要な情報も一緒に渡す
+      const selectionInfo: RecipeListModalSelectionInfo = {
+        taskId,
+        sseSessionId,
+        onSelect,
+        currentStage,
+        onNextStageRequested,
+        isLoading
+      };
+      console.log('[SelectionOptions] handleViewList - selectionInfo:', selectionInfo);
+      console.log('[SelectionOptions] handleViewList - candidates:', candidates.length);
+      onViewList(candidates, selectionInfo);
     }
   };
 

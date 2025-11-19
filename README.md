@@ -398,3 +398,24 @@ npx expo start --tunnel
 **影響範囲**:
 - 開発環境でのログビューアー表示のみ
 - ログ生成機能には影響なし
+
+## デバッグ環境のセットアップ
+
+### EASビルドAPKのローカルデバッグ
+
+Expo Goで動いていたアプリがEASビルドで動かない問題を解決するため、Windowsホスト環境にadbをインストールしてローカルデバッグ環境を構築できます。
+
+**詳細手順**: [Windows環境でのadbインストールとAndroidデバッグ環境セットアップ](./docs/WINDOWS_ADB_SETUP.md)
+
+**クイックスタート**:
+1. Android SDK Platform Toolsをインストール
+2. 環境変数PATHに`platform-tools`フォルダを追加
+3. Android実機でUSBデバッグを有効化
+4. `adb devices`で接続確認
+5. `adb logcat`でログを確認
+6. `adb install`でAPKをインストール
+
+**メリット**:
+- 無料枠のビルド回数制限を節約
+- ローカルで即座にデバッグ可能
+- 詳細なログを取得可能

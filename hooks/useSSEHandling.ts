@@ -144,7 +144,7 @@ export function useSSEHandling(
           candidates?: RecipeCandidate[];
           task_id?: string;
           message?: string;
-          current_stage?: 'main' | 'sub' | 'soup';
+          current_stage?: 'main' | 'sub' | 'soup' | 'other';
           used_ingredients?: string[];
           menu_category?: 'japanese' | 'western' | 'chinese';
         };

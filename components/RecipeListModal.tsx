@@ -222,21 +222,6 @@ const RecipeListModal: React.FC<RecipeListModalProps> = ({
                     {candidate.description}
                   </Text>
                 )}
-                
-                {/* ソース情報 - 段階提案の場合は表示しない */}
-                {!selectionInfo && candidate.source && (
-                  <View style={styles.sourceContainer}>
-                    <Text style={[
-                      styles.sourceBadge,
-                      candidate.source === 'llm' && styles.sourceBadgeLLM,
-                      candidate.source === 'rag' && styles.sourceBadgeRAG,
-                      candidate.source === 'web' && styles.sourceBadgeWeb
-                    ]}>
-                      {candidate.source === 'llm' ? '斬新提案' : 
-                       candidate.source === 'rag' ? '伝統提案' : 'Web検索'}
-                    </Text>
-                  </View>
-                )}
               </TouchableOpacity>
             ))}
           </View>

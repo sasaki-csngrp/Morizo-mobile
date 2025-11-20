@@ -8,7 +8,7 @@ export interface RecipeListModalSelectionInfo {
   taskId: string;
   sseSessionId: string;
   onSelect: (selection: number, selectionResult?: any) => void;
-  currentStage?: 'main' | 'sub' | 'soup';
+  currentStage?: 'main' | 'sub' | 'soup' | 'other';
   onNextStageRequested?: (sseSessionId?: string) => void;
   isLoading?: boolean;
 }
@@ -21,7 +21,7 @@ export function useModalManagement() {
   // Phase 2.3: レシピ一覧モーダルの状態管理
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [listModalCandidates, setListModalCandidates] = useState<RecipeCandidate[]>([]);
-  const [listModalCurrentStage, setListModalCurrentStage] = useState<'main' | 'sub' | 'soup' | undefined>(undefined);
+  const [listModalCurrentStage, setListModalCurrentStage] = useState<'main' | 'sub' | 'soup' | 'other' | undefined>(undefined);
   const [listModalSelectionInfo, setListModalSelectionInfo] = useState<RecipeListModalSelectionInfo | null>(null);
   
   // Phase 3.2: 履歴パネルの状態管理
@@ -49,7 +49,7 @@ export function useModalManagement() {
   // Phase 2.3: レシピ一覧を見るハンドラー
   const handleViewList = (
     candidates: RecipeCandidate[],
-    selectionInfo?: RecipeListModalSelectionInfo | 'main' | 'sub' | 'soup'
+    selectionInfo?: RecipeListModalSelectionInfo | 'main' | 'sub' | 'soup' | 'other'
   ) => {
     setListModalCandidates(candidates);
     

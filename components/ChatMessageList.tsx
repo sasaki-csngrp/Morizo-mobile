@@ -17,6 +17,7 @@ interface ChatMessageListProps {
     main?: RecipeCandidate;
     sub?: RecipeCandidate;
     soup?: RecipeCandidate;
+    other?: RecipeCandidate;
   };
   isSavingMenu: boolean;
   savedMessage: string;
@@ -157,11 +158,12 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({
         )}
         
         {/* Phase 3.1: 選択済みレシピの表示 */}
-        {(selectedRecipes.main || selectedRecipes.sub || selectedRecipes.soup) && (
+        {(selectedRecipes.main || selectedRecipes.sub || selectedRecipes.soup || selectedRecipes.other) && (
           <SelectedRecipeCard
             main={selectedRecipes.main}
             sub={selectedRecipes.sub}
             soup={selectedRecipes.soup}
+            other={selectedRecipes.other}
             onSave={onSaveMenu}
             onViewList={(candidates) => onViewList(candidates)}
             isSaving={isSavingMenu}

@@ -17,6 +17,7 @@ export function useRecipeSelection(
     main?: RecipeCandidate;
     sub?: RecipeCandidate;
     soup?: RecipeCandidate;
+    other?: RecipeCandidate;
   }>({});
 
   const [isSavingMenu, setIsSavingMenu] = useState(false);
@@ -24,14 +25,68 @@ export function useRecipeSelection(
 
   const handleSelection = (selection: number, selectionResult?: any) => {
     // Phase 3.1: 選択したレシピ情報を取得して状態に保存
-    if (selectionResult && selectionResult.selected_recipe) {
-      const { category, recipe } = selectionResult.selected_recipe;
-      const categoryKey = category === 'main' ? 'main' : category === 'sub' ? 'sub' : 'soup';
+    setAwaitingSelection(false);
+    
+    if (selectionResult) {
+      // menuオブジェクトからレシピを取得（献立完成時やotherカテゴリの場合）
+      if (selectionResult.menu) {
+        const menu = selectionResult.menu;
+        const updatedRecipes: { main?: RecipeCandidate; sub?: RecipeCandidate; soup?: RecipeCandidate; other?: RecipeCandidate } = {};
+        
+        // main, sub, soup, otherの各カテゴリを処理
+        for (const category of ['main', 'sub', 'soup', 'other'] as const) {
+          const recipe = menu[category];
+          if (recipe) {
+            updatedRecipes[category] = {
+              title: recipe.title || '',
+              ingredients: recipe.ingredients || [],
+              cooking_time: recipe.cooking_time,
+              description: recipe.description,
+              category: category,
+              source: recipe.source,
+              urls: recipe.urls || (recipe.url ? [{ title: recipe.title || '', url: recipe.url, domain: '' }] : undefined)
+            };
+          }
+        }
+        
+        // selectedRecipes状態を更新
+        if (Object.keys(updatedRecipes).length > 0) {
+          setSelectedRecipes(prev => ({
+            ...prev,
+            ...updatedRecipes
+          }));
+          
+          console.log('[DEBUG] Updated selectedRecipes from menu:', updatedRecipes);
+        }
+      }
       
-      setSelectedRecipes(prev => ({
-        ...prev,
-        [categoryKey]: recipe
-      }));
+      // selected_recipeからも取得（個別選択時）
+      if (selectionResult.selected_recipe) {
+        const { category, recipe } = selectionResult.selected_recipe;
+        const categoryKey = category as 'main' | 'sub' | 'soup' | 'other';
+        
+        // RecipeCandidate型に変換（必要に応じて）
+        const recipeCandidate: RecipeCandidate = {
+          title: recipe.title || '',
+          ingredients: recipe.ingredients || [],
+          cooking_time: recipe.cooking_time,
+          description: recipe.description,
+          category: categoryKey,
+          source: recipe.source,
+          urls: recipe.urls || (recipe.url ? [{ title: recipe.title || '', url: recipe.url, domain: '' }] : undefined)
+        };
+        
+        // selectedRecipes状態を更新
+        setSelectedRecipes(prev => ({
+          ...prev,
+          [categoryKey]: recipeCandidate
+        }));
+        
+        console.log('[DEBUG] Updated selectedRecipes from selected_recipe:', {
+          category: categoryKey,
+          recipe: recipeCandidate
+        });
+      }
     }
     
     setAwaitingSelection(false);
@@ -48,7 +103,7 @@ export function useRecipeSelection(
 
   // Phase 3.1: 献立保存機能の実装
   const handleSaveMenu = async () => {
-    if (!selectedRecipes.main && !selectedRecipes.sub && !selectedRecipes.soup) {
+    if (!selectedRecipes.main && !selectedRecipes.sub && !selectedRecipes.soup && !selectedRecipes.other) {
       Alert.alert('エラー', '保存するレシピがありません');
       return;
     }
@@ -60,7 +115,7 @@ export function useRecipeSelection(
       console.log('[DEBUG] Saving menu with selectedRecipes:', selectedRecipes);
       
       // Web版と同じ方式: selectedRecipesを直接送信
-      const recipesToSave: { main?: any; sub?: any; soup?: any } = {};
+      const recipesToSave: { main?: any; sub?: any; soup?: any; other?: any } = {};
       
       if (selectedRecipes.main) {
         recipesToSave.main = {
@@ -92,6 +147,17 @@ export function useRecipeSelection(
             ? selectedRecipes.soup.urls[0].url 
             : undefined,
           ingredients: selectedRecipes.soup.ingredients || []
+        };
+      }
+      
+      if (selectedRecipes.other) {
+        recipesToSave.other = {
+          title: selectedRecipes.other.title,
+          source: selectedRecipes.other.source || 'web',
+          url: selectedRecipes.other.urls && selectedRecipes.other.urls.length > 0 
+            ? selectedRecipes.other.urls[0].url 
+            : undefined,
+          ingredients: selectedRecipes.other.ingredients || []
         };
       }
       

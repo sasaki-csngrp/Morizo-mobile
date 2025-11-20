@@ -195,7 +195,7 @@ export interface RecipeCandidate {
   /** 説明（オプション） */
   description?: string;
   /** カテゴリ */
-  category?: 'main' | 'sub' | 'soup';
+  category?: 'main' | 'sub' | 'soup' | 'other';
   /** ソース（斬新提案/伝統提案/Web検索） */
   source?: 'llm' | 'rag' | 'web';
   /** URL情報（新規追加） */

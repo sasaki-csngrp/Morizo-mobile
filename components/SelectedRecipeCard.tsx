@@ -6,6 +6,7 @@ interface SelectedRecipeCardProps {
   main?: RecipeCandidate;
   sub?: RecipeCandidate;
   soup?: RecipeCandidate;
+  other?: RecipeCandidate;
   onSave?: () => void;
   onViewList?: (candidates: RecipeCandidate[]) => void;
   isSaving?: boolean;
@@ -16,12 +17,14 @@ const SelectedRecipeCard: React.FC<SelectedRecipeCardProps> = ({
   main,
   sub,
   soup,
+  other,
   onSave,
   onViewList,
   isSaving = false,
   savedMessage
 }) => {
-  const isComplete = main && sub && soup;
+  // otherカテゴリの場合は単体動作として完了
+  const isComplete = other ? true : (main && sub && soup);
   const [isExpanded, setIsExpanded] = useState(false);
   
   // 献立が完成したら自動で開く
@@ -32,6 +35,7 @@ const SelectedRecipeCard: React.FC<SelectedRecipeCardProps> = ({
   }, [isComplete]);
   
   const getTitle = () => {
+    if (other) return '✅ レシピが確定しました';
     if (isComplete) return '🎉 献立が完成しました！';
     if (sub) return '✅ 副菜が確定しました';
     if (main) return '✅ 主菜が確定しました';
@@ -104,6 +108,20 @@ const SelectedRecipeCard: React.FC<SelectedRecipeCardProps> = ({
                 </View>
               </View>
             )}
+            
+            {other && (
+              <View style={styles.recipeCard}>
+                <Text style={styles.emoji}>🍜</Text>
+                <View style={styles.recipeContent}>
+                  <Text style={styles.recipeTitle}>その他: {other.title}</Text>
+                  {other.ingredients && other.ingredients.length > 0 && (
+                    <Text style={styles.ingredients}>
+                      食材: {other.ingredients.join(', ')}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            )}
           </View>
           
           <View style={styles.buttonContainer}>
@@ -118,13 +136,14 @@ const SelectedRecipeCard: React.FC<SelectedRecipeCardProps> = ({
                 </Text>
               </TouchableOpacity>
             )}
-            {onViewList && (main || sub || soup) && (
+            {onViewList && (main || sub || soup || other) && (
               <TouchableOpacity
                 onPress={() => {
                   const recipes = [];
                   if (main) recipes.push(main);
                   if (sub) recipes.push(sub);
                   if (soup) recipes.push(soup);
+                  if (other) recipes.push(other);
                   onViewList(recipes);
                 }}
                 style={[styles.viewListButton, onSave && { marginLeft: 8 }]}

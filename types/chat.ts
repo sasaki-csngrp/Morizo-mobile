@@ -15,13 +15,14 @@ export interface ChatMessage {
   candidates?: RecipeCandidate[];
   taskId?: string;
   // Phase 3D: 段階情報
-  currentStage?: 'main' | 'sub' | 'soup';
+  currentStage?: 'main' | 'sub' | 'soup' | 'other';
   usedIngredients?: string[];
   menuCategory?: 'japanese' | 'western' | 'chinese';
   selectedRecipe?: {
     main?: RecipeCandidate;
     sub?: RecipeCandidate;
     soup?: RecipeCandidate;
+    other?: RecipeCandidate;
   };
 }
 

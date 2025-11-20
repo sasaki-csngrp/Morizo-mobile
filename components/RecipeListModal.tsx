@@ -223,8 +223,8 @@ const RecipeListModal: React.FC<RecipeListModalProps> = ({
                   </Text>
                 )}
                 
-                {/* ソース情報 */}
-                {candidate.source && (
+                {/* ソース情報 - 段階提案の場合は表示しない */}
+                {!selectionInfo && candidate.source && (
                   <View style={styles.sourceContainer}>
                     <Text style={[
                       styles.sourceBadge,

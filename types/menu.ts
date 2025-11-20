@@ -13,6 +13,8 @@ export interface RecipeUrl {
   url: string;
   /** ドメイン名 */
   domain: string;
+  /** 画像URL（オプション、バックエンドから提供される場合がある） */
+  image_url?: string;
 }
 
 /**

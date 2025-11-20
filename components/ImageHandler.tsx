@@ -30,7 +30,14 @@ export default function ImageHandler({ urls, title, onUrlClick }: ImageHandlerPr
         setImageLoading(true);
         setImageError(false);
         
-        // 最初のURLから画像を抽出
+        // バックエンドから提供されたimage_urlを優先的に使用
+        if (urls[0]?.image_url) {
+          setImageUrl(urls[0].image_url);
+          setImageLoading(false);
+          return;
+        }
+        
+        // image_urlが存在しない場合のみ、URLから画像を抽出
         const extractedImageUrl = await extractImageFromUrl(urls[0].url);
         
         if (extractedImageUrl) {

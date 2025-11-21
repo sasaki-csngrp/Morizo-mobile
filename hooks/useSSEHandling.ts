@@ -17,7 +17,8 @@ export function useSSEHandling(
   setConfirmationSessionId: React.Dispatch<React.SetStateAction<string | null>>,
   setAwaitingSelection: React.Dispatch<React.SetStateAction<boolean>>,
   scrollViewRef: React.RefObject<any>,
-  getApiUrl: () => string
+  getApiUrl: () => string,
+  setHelpSessionId?: React.Dispatch<React.SetStateAction<string | null>>
 ) {
   const handleRequestMore = (sseSessionId: string) => {
     // 新しいstreamingメッセージを追加（SSEセッションIDはSelectionOptionsから渡される）
@@ -211,13 +212,35 @@ export function useSSEHandling(
         setIsTextChatLoading(false);
       } else {
         // 通常の完了処理
+        const responseText = typedResult?.response || '';
+        const targetSseSessionId = message.sseSessionId;
+        
+        // ヘルプ応答の検知: ヘルプ全体概要または機能別詳細の応答かどうか
+        const isHelpResponse = responseText.includes('4つの便利な機能') ||
+                              responseText.includes('5つの便利な機能') ||
+                              responseText.includes('どの機能について知りたいですか') ||
+                              responseText.includes('1〜5の数字を入力してください') ||
+                              responseText.includes('食材を追加する') ||
+                              responseText.includes('食材を削除する') ||
+                              responseText.includes('主菜を選ぶ') ||
+                              responseText.includes('副菜を選ぶ') ||
+                              responseText.includes('汁物を選ぶ') ||
+                              responseText.includes('在庫一覧を確認する') ||
+                              responseText.includes('レシピ履歴を確認する');
+        
+        // ヘルプ応答の場合は、セッションIDをヘルプセッションIDとして保存
+        if (isHelpResponse && setHelpSessionId && targetSseSessionId) {
+          console.log('[DEBUG] Help response detected, setting help session ID:', targetSseSessionId);
+          setHelpSessionId(targetSseSessionId);
+        }
+        
         setChatMessages(prev => 
           prev.map((msg, idx) => 
             idx === messageIndex
               ? { 
                   id: msg.id,
                   type: 'ai', 
-                  content: typedResult?.response || '処理が完了しました', 
+                  content: responseText || '処理が完了しました', 
                   timestamp: msg.timestamp,
                   result: typedResult 
                 }

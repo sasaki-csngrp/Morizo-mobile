@@ -58,7 +58,8 @@ function ChatScreenContent() {
     chatMessagesHook.setConfirmationSessionId,
     setAwaitingSelection,
     scrollViewRef,
-    chatMessagesHook.getApiUrl
+    chatMessagesHook.getApiUrl,
+    chatMessagesHook.setHelpSessionId
   );
 
   // 音声録音機能

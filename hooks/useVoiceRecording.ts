@@ -62,15 +62,31 @@ export function useVoiceRecording(
     // テキスト入力と同じロジックを使用
     let sseSessionId: string;
     const isConfirmationRequest = chatMessagesHook.awaitingConfirmation && !!chatMessagesHook.confirmationSessionId;
+    
+    // ヘルプモード判定: 数字入力（1-5）またはヘルプキーワードの場合
+    const isHelpKeyword = /^(使い方を教えて|使い方を知りたい|使い方を説明して|ヘルプ|help)$/i.test(normalizedText.trim());
+    const isHelpNumber = /^[1-5]$/.test(normalizedText.trim());
+    const isHelpModeInput = isHelpKeyword || isHelpNumber;
+    const isInHelpMode = !!chatMessagesHook.helpSessionId && (isHelpNumber || isHelpKeyword);
 
     if (isConfirmationRequest) {
       // 曖昧性確認中の場合は既存のセッションIDを使用
       sseSessionId = chatMessagesHook.confirmationSessionId!;
-      console.log('[DEBUG] Voice: Using existing session ID:', sseSessionId);
+      console.log('[DEBUG] Voice: Using existing session ID (confirmation):', sseSessionId);
+    } else if (isInHelpMode) {
+      // ヘルプモード中の場合は既存のヘルプセッションIDを使用
+      sseSessionId = chatMessagesHook.helpSessionId!;
+      console.log('[DEBUG] Voice: Using existing session ID (help mode):', sseSessionId);
     } else {
       // 新規リクエストの場合は新しいセッションIDを生成
       sseSessionId = generateSSESessionId();
       console.log('[DEBUG] Voice: Generated new session ID:', sseSessionId);
+      
+      // 通常のチャット入力（数字でもヘルプキーワードでもない）の場合はヘルプモードを終了
+      if (chatMessagesHook.helpSessionId && !isHelpModeInput) {
+        console.log('[DEBUG] Voice: Exiting help mode (normal chat input)');
+        chatMessagesHook.setHelpSessionId(null);
+      }
     }
     
     console.log('[DEBUG] Voice: Sending request with:', {
@@ -82,15 +98,21 @@ export function useVoiceRecording(
       confirmationSessionId: chatMessagesHook.confirmationSessionId
     });
     
-    // ストリーミング進捗表示を追加（テキスト入力と同じ処理）
-    const streamingMessage: ChatMessage = {
-      id: (Date.now() + 1).toString(),
-      type: 'streaming',
-      content: '',
-      timestamp: new Date(),
-      sseSessionId: sseSessionId,
-    };
-    setChatMessages(prev => [...prev, streamingMessage]);
+    // ヘルプモード中（数字1-5入力）の場合は、ストリーミング進捗表示を追加しない
+    // HTTPレスポンスから直接処理するため
+    const shouldSkipStreaming = isInHelpMode && isHelpNumber;
+    
+    if (!shouldSkipStreaming) {
+      // ストリーミング進捗表示を追加（テキスト入力と同じ処理）
+      const streamingMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        type: 'streaming',
+        content: '',
+        timestamp: new Date(),
+        sseSessionId: sseSessionId,
+      };
+      setChatMessages(prev => [...prev, streamingMessage]);
+    }
     
     // スクロールを最下部に移動
     setTimeout(() => {
@@ -128,8 +150,64 @@ export function useVoiceRecording(
       
       console.log('[DEBUG] Voice: HTTP Response received (for reference only):', {
         success: data.success,
-        has_response: !!data.response
+        has_response: !!data.response,
+        response_preview: data.response?.substring(0, 100)
       });
+      
+      // ヘルプ応答の検知: ヘルプ全体概要または機能別詳細の応答かどうか
+      // ヘルプモード中（helpSessionIdが設定されている）の場合は、すべての応答をヘルプ応答として扱う
+      const isHelpResponse = data.response && (
+        isInHelpMode || // ヘルプモード中はすべてヘルプ応答として扱う
+        data.response.includes('4つの便利な機能') ||
+        data.response.includes('5つの便利な機能') ||
+        data.response.includes('どの機能について知りたいですか') ||
+        data.response.includes('1〜5の数字を入力してください') ||
+        data.response.includes('食材を追加する') ||
+        data.response.includes('食材を削除する') ||
+        data.response.includes('主菜を選ぶ') ||
+        data.response.includes('副菜を選ぶ') ||
+        data.response.includes('汁物を選ぶ') ||
+        data.response.includes('在庫一覧を確認する') ||
+        data.response.includes('レシピ履歴を確認する') ||
+        data.response.includes('AIとともに') ||
+        data.response.includes('ゆるーく') ||
+        data.response.includes('推し！機能')
+      );
+      
+      // ヘルプ応答の場合は、SSEを待たずにHTTPレスポンスから直接処理
+      if (isHelpResponse && data.success && data.response) {
+        console.log('[DEBUG] Voice: Help response detected in HTTP response, processing directly');
+        
+        // ヘルプセッションIDを設定
+        chatMessagesHook.setHelpSessionId(sseSessionId);
+        
+        if (shouldSkipStreaming) {
+          // ストリーミングメッセージを追加していない場合は、直接AIメッセージを追加
+          const aiMessage: ChatMessage = {
+            id: (Date.now() + 1).toString(),
+            type: 'ai',
+            content: data.response,
+            timestamp: new Date(),
+          };
+          setChatMessages(prev => [...prev, aiMessage]);
+        } else {
+          // streamingメッセージをAIレスポンスに置き換え
+          setChatMessages(prev => prev.map((msg) => 
+            msg.type === 'streaming' && msg.sseSessionId === sseSessionId
+              ? { 
+                  id: msg.id,
+                  type: 'ai', 
+                  content: data.response,
+                  timestamp: msg.timestamp
+                }
+              : msg
+          ));
+        }
+        
+        // ローディング状態を終了
+        setIsVoiceChatLoading(false);
+        return; // ヘルプ応答の場合はここで処理終了
+      }
       
       // 確認応答を送信した場合のみ、状態をリセット
       if (isConfirmationRequest && data.success && !data.requires_confirmation) {

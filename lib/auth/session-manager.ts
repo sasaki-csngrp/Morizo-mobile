@@ -51,21 +51,65 @@ export const clearInvalidSession = async (): Promise<void> => {
 export const clearSession = async (): Promise<void> => {
   safeLog.info(LogCategory.AUTH, 'セッションを強制クリアします');
   
+  // Supabaseのサインアウトを実行
+  try {
+    await supabase.auth.signOut();
+  } catch (error: any) {
+    safeLog.warn(LogCategory.AUTH, 'Supabaseサインアウトエラー（続行）', { error: error.message });
+  }
+  
   // プラットフォーム対応のストレージクリア
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    localStorage.removeItem('sb-pidcexsxgyfsnosglzjt-auth-token');
-    localStorage.removeItem('supabase.auth.token');
-    await logStorage('clear_localStorage', 'auth-token');
+    // すべてのSupabase関連キーを削除
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.includes('supabase') || key.includes('sb-') || key.includes('auth-token'))) {
+        keysToRemove.push(key);
+      }
+    }
+    
+    keysToRemove.forEach(key => {
+      localStorage.removeItem(key);
+      safeLog.debug(LogCategory.AUTH, 'localStorageからキーを削除', { key: key.replace(/token|key|password/gi, '***') });
+    });
+    
+    await logStorage('clear_localStorage', 'all-auth-keys');
+    safeLog.info(LogCategory.AUTH, 'localStorageからすべての認証キーをクリアしました', { count: keysToRemove.length });
   } else {
     // モバイル版ではAsyncStorageをクリア
     try {
-      await AsyncStorage.removeItem('sb-pidcexsxgyfsnosglzjt-auth-token');
-      await AsyncStorage.removeItem('supabase.auth.token');
-      await logStorage('clear_AsyncStorage', 'auth-token');
-      safeLog.info(LogCategory.AUTH, 'AsyncStorageからセッションをクリアしました');
+      // すべてのキーを取得してSupabase関連のものを削除
+      const allKeys = await AsyncStorage.getAllKeys();
+      const supabaseKeys = allKeys.filter(key => 
+        key.includes('supabase') || 
+        key.includes('sb-') || 
+        key.includes('auth-token') ||
+        key.includes('loputwcsrmwgkeydxcba') // プロジェクトIDを含むキー
+      );
+      
+      if (supabaseKeys.length > 0) {
+        await AsyncStorage.multiRemove(supabaseKeys);
+        supabaseKeys.forEach(key => {
+          safeLog.debug(LogCategory.AUTH, 'AsyncStorageからキーを削除', { key: key.replace(/token|key|password/gi, '***') });
+        });
+      }
+      
+      await logStorage('clear_AsyncStorage', 'all-auth-keys');
+      safeLog.info(LogCategory.AUTH, 'AsyncStorageからすべての認証キーをクリアしました', { count: supabaseKeys.length });
     } catch (error: any) {
       safeLog.error(LogCategory.AUTH, 'AsyncStorageクリアエラー', { error: error.message });
     }
+  }
+  
+  // セッションが完全にクリアされたことを確認
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    safeLog.warn(LogCategory.AUTH, 'セッションがまだ残っています。再度クリアを試みます');
+    // 再度サインアウトを試みる
+    await supabase.auth.signOut();
+  } else {
+    safeLog.info(LogCategory.AUTH, 'セッションが完全にクリアされました');
   }
 };
 

@@ -86,6 +86,25 @@ export const signOut = async (userEmail?: string): Promise<void> => {
       safeLog.warn(LogCategory.AUTH, 'Supabaseサインアウトエラー', { error: error.message });
     }
     
+    // セッションが完全にクリアされるまで待機（最大3秒、500ms間隔でチェック）
+    let attempts = 0;
+    const maxAttempts = 6;
+    while (attempts < maxAttempts) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        safeLog.info(LogCategory.AUTH, 'セッションが完全にクリアされました', { attempts: attempts + 1 });
+        break;
+      }
+      attempts++;
+      if (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+    
+    if (attempts >= maxAttempts) {
+      safeLog.warn(LogCategory.AUTH, 'セッションクリアの確認がタイムアウトしましたが、処理を続行します');
+    }
+    
     await logAuth('signout', userEmail, true);
     await logSession('signout', 'cleared');
     safeLog.info(LogCategory.AUTH, 'ログアウト成功');

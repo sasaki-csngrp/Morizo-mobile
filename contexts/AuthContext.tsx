@@ -9,6 +9,7 @@ import { signIn as signInMethod, signUp as signUpMethod, signOut as signOutMetho
 import { useAuthStateListener } from '../lib/auth/auth-state-listener';
 import { useDeepLinkingHandler } from '../lib/auth/deep-linking-handler';
 import { signInWithGoogle as signInWithGoogleMethod } from '../lib/auth/google-auth';
+import { supabase } from '../lib/supabase';
 
 // WebBrowserをクリーンアップ（メモリリーク防止）
 WebBrowser.maybeCompleteAuthSession();
@@ -70,18 +71,38 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // サインアウト関数
   const signOut = async () => {
+    const userEmail = user?.email;
+    
     // まず状態を即座にクリア（エラーが出てもログアウトを確実に実行）
     setSession(null);
     setUser(null);
     
     // サインアウト処理を実行
     try {
-      await signOutMethod(user?.email);
-    } catch (error) {
+      await signOutMethod(userEmail);
+      
+      // セッションストレージも確実にクリア
+      await clearSessionStorage();
+      
+      // 最終確認：セッションが完全にクリアされたことを確認
+      const { data: { session: finalSession } } = await supabase.auth.getSession();
+      if (finalSession) {
+        safeLog.warn(LogCategory.AUTH, 'ログアウト後もセッションが残っています。強制クリアを実行します');
+        // 強制的にストレージをクリア
+        await clearSessionStorage();
+        // 再度Supabaseのサインアウトを実行
+        await supabase.auth.signOut();
+      } else {
+        safeLog.info(LogCategory.AUTH, 'ログアウトが完全に完了しました');
+      }
+    } catch (error: any) {
+      safeLog.error(LogCategory.AUTH, 'サインアウト処理でエラー', { error: error.message });
+      
       // エラーが出てもローカルストレージをクリア
       try {
-        await AsyncStorage.removeItem('supabase.auth.token');
-        await AsyncStorage.clear(); // 全クリア
+        await clearSessionStorage();
+        // Supabaseのサインアウトも試みる
+        await supabase.auth.signOut();
       } catch (storageError: any) {
         safeLog.error(LogCategory.AUTH, 'ストレージクリアエラー', { error: storageError.message });
       }

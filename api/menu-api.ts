@@ -133,3 +133,27 @@ export async function deleteIngredients(
   throw new Error('食材削除に失敗しました');
 }
 
+// レシピ評価・コメント更新API
+export async function updateRecipeRating(
+  historyId: string,
+  rating: number | null,
+  notes: string | null
+): Promise<any> {
+  const apiUrl = `${getApiUrl()}/menu/history/${historyId}/rating`;
+  
+  const response = await authenticatedFetch(apiUrl, {
+    method: 'PUT',
+    body: JSON.stringify({
+      rating: rating,
+      notes: notes,
+    }),
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+  }
+  
+  return await response.json();
+}
+

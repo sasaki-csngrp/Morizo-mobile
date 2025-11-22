@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet
 import { getMenuHistory } from '../api/menu-api';
 import { Picker } from '@react-native-picker/picker';
 import IngredientDeleteModal from './IngredientDeleteModal';
+import RecipeRatingModal from './RecipeRatingModal';
 
 interface HistoryRecipe {
   category: string | null;
@@ -11,6 +12,9 @@ interface HistoryRecipe {
   url?: string;
   history_id: string;
   duplicate_warning?: string;
+  rating?: number;
+  notes?: string;
+  image_url?: string;
 }
 
 interface HistoryEntry {
@@ -31,6 +35,8 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, onClose }) => {
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
+  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
+  const [selectedRecipe, setSelectedRecipe] = useState<HistoryRecipe | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -78,6 +84,16 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, onClose }) => {
           : entry
       )
     );
+  };
+
+  const handleRecipeClick = (recipe: HistoryRecipe) => {
+    setSelectedRecipe(recipe);
+    setIsRatingModalOpen(true);
+  };
+
+  const handleRatingSave = async (rating: number | null, notes: string) => {
+    // 履歴を再読み込みして最新の評価・コメントを反映
+    await loadHistory();
   };
 
   return (
@@ -163,8 +179,10 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, onClose }) => {
                     )}
                   </View>
                   {entry.recipes.map((recipe: any, recipeIndex: number) => (
-                    <View
+                    <TouchableOpacity
                       key={recipeIndex}
+                      onPress={() => handleRecipeClick(recipe)}
+                      activeOpacity={0.7}
                       style={[
                         styles.recipeCard,
                         recipe.duplicate_warning && styles.recipeCardWarning
@@ -172,16 +190,37 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, onClose }) => {
                     >
                       <Text style={styles.categoryIcon}>{getCategoryIcon(recipe.category)}</Text>
                       <View style={styles.recipeContent}>
-                        <Text style={styles.recipeTitle}>
-                          {recipe.title.replace(/^(主菜|副菜|汁物):\s*/, '')}
-                        </Text>
+                        <View style={styles.recipeTitleRow}>
+                          <Text style={styles.recipeTitle} numberOfLines={2}>
+                            {recipe.title.replace(/^(主菜|副菜|汁物):\s*/, '')}
+                          </Text>
+                          <View style={styles.recipeIcons}>
+                            {/* 評価アイコン */}
+                            {recipe.rating && (
+                              <Text
+                                style={[
+                                  styles.ratingIcon,
+                                  recipe.rating === 5 && styles.ratingIconRed,
+                                  recipe.rating === 3 && styles.ratingIconGray,
+                                  recipe.rating === 1 && styles.ratingIconPurple,
+                                ]}
+                              >
+                                {recipe.rating === 5 ? '❤️' : recipe.rating === 3 ? '🩶' : '💔'}
+                              </Text>
+                            )}
+                            {/* コメントアイコン */}
+                            {recipe.notes && (
+                              <Text style={styles.commentIcon}>💬</Text>
+                            )}
+                          </View>
+                        </View>
                         {recipe.duplicate_warning && (
                           <Text style={styles.warningText}>
                             ⚠️ 重複警告（{recipe.duplicate_warning}）
                           </Text>
                         )}
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   ))}
                 </View>
               ))}
@@ -205,6 +244,14 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, onClose }) => {
         isOpen={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
         onDeleteComplete={handleDeleteComplete}
+      />
+
+      {/* 評価モーダル */}
+      <RecipeRatingModal
+        isOpen={isRatingModalOpen}
+        onClose={() => setIsRatingModalOpen(false)}
+        recipe={selectedRecipe}
+        onSave={handleRatingSave}
       />
     </Modal>
   );
@@ -347,10 +394,38 @@ const styles = StyleSheet.create({
   recipeContent: {
     flex: 1,
   },
+  recipeTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
   recipeTitle: {
     fontSize: 14,
     fontWeight: '500',
     color: '#1f2937',
+    flex: 1,
+  },
+  recipeIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  ratingIcon: {
+    fontSize: 16,
+  },
+  ratingIconRed: {
+    // 赤色はデフォルトの❤️で表現
+  },
+  ratingIconGray: {
+    // グレーは🩶で表現
+  },
+  ratingIconPurple: {
+    // 紫色は💔で表現
+  },
+  commentIcon: {
+    fontSize: 16,
+    color: '#2563eb',
   },
   warningText: {
     fontSize: 12,

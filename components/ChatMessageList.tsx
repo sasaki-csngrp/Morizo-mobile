@@ -7,6 +7,7 @@ import SelectionOptions from './SelectionOptions';
 import SelectedRecipeCard from './SelectedRecipeCard';
 import { isMenuResponse } from '../lib/menu-parser';
 import { RecipeListModalSelectionInfo } from '../hooks/useModalManagement';
+import MarkdownText from './MarkdownText';
 
 interface ChatMessageListProps {
   chatMessages: ChatMessage[];
@@ -91,7 +92,7 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({
                       {message.timestamp.toLocaleTimeString()}
                     </Text>
                   </View>
-                  <Text style={styles.messageContent}>{message.content}</Text>
+                  <MarkdownText content={message.content} style={styles.messageContent} />
                 </View>
               )}
               
@@ -104,7 +105,7 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({
                       {message.timestamp.toLocaleTimeString()}
                     </Text>
                   </View>
-                  <Text style={styles.messageContent}>{message.content}</Text>
+                  <MarkdownText content={message.content} style={styles.messageContent} />
                   
                   {/* 選択UI表示（優先） */}
                   {message.requiresSelection && message.candidates && message.taskId && (

@@ -23,6 +23,7 @@ export default function ImageHandler({ urls, title, onUrlClick }: ImageHandlerPr
   useEffect(() => {
     const loadImage = async () => {
       if (urls.length === 0) {
+        console.log('[ImageHandler] urls配列が空です');
         return;
       }
 
@@ -30,23 +31,45 @@ export default function ImageHandler({ urls, title, onUrlClick }: ImageHandlerPr
         setImageLoading(true);
         setImageError(false);
         
+        // デバッグ: 受け取ったデータを確認
+        console.log('[ImageHandler] 画像読み込み開始:', {
+          title,
+          urlsCount: urls.length,
+          firstUrl: urls[0]?.url,
+          firstImageUrl: urls[0]?.image_url,
+          firstImageUrlType: typeof urls[0]?.image_url,
+          firstImageUrlTruthy: !!urls[0]?.image_url,
+          allUrls: urls.map(u => ({ url: u.url, image_url: u.image_url, image_urlType: typeof u.image_url }))
+        });
+        
         // バックエンドから提供されたimage_urlを優先的に使用
-        if (urls[0]?.image_url) {
-          setImageUrl(urls[0].image_url);
+        // image_urlが存在し、かつ空文字列でない場合に使用
+        const firstImageUrl = urls[0]?.image_url;
+        if (firstImageUrl && typeof firstImageUrl === 'string' && firstImageUrl.trim().length > 0) {
+          console.log('[ImageHandler] image_urlを使用:', firstImageUrl);
+          setImageUrl(firstImageUrl);
           setImageLoading(false);
           return;
         }
         
         // image_urlが存在しない場合のみ、URLから画像を抽出
+        console.log('[ImageHandler] image_urlが存在しないため、URLから画像を抽出します:', {
+          url: urls[0]?.url,
+          image_url: firstImageUrl,
+          image_urlType: typeof firstImageUrl,
+          image_urlLength: firstImageUrl?.length
+        });
         const extractedImageUrl = await extractImageFromUrl(urls[0].url);
         
         if (extractedImageUrl) {
+          console.log('[ImageHandler] 画像抽出成功:', extractedImageUrl);
           setImageUrl(extractedImageUrl);
         } else {
+          console.warn('[ImageHandler] 画像抽出失敗: extractedImageUrlがnull');
           setImageError(true);
         }
       } catch (error) {
-        console.warn('画像抽出に失敗:', error);
+        console.warn('[ImageHandler] 画像抽出に失敗:', error);
         setImageError(true);
       } finally {
         setImageLoading(false);
@@ -54,7 +77,7 @@ export default function ImageHandler({ urls, title, onUrlClick }: ImageHandlerPr
     };
 
     loadImage();
-  }, [urls]);
+  }, [urls, title]);
 
   const handleImageClick = () => {
     if (onUrlClick) {

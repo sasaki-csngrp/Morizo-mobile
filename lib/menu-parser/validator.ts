@@ -206,12 +206,20 @@ export function validateRecipeUrl(url: unknown): { success: boolean; data?: Reci
     };
   }
 
+  // image_urlフィールドの処理（オプショナル）
+  const recipeUrl: RecipeUrl = {
+    title: urlObj.title,
+    url: urlObj.url,
+    domain: urlObj.domain
+  };
+
+  // image_urlが存在し、有効な文字列の場合は追加
+  if (urlObj.image_url !== undefined && typeof urlObj.image_url === 'string' && urlObj.image_url.trim().length > 0) {
+    recipeUrl.image_url = urlObj.image_url;
+  }
+
   return {
     success: true,
-    data: {
-      title: urlObj.title,
-      url: urlObj.url,
-      domain: urlObj.domain
-    }
+    data: recipeUrl
   };
 }

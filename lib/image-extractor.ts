@@ -11,11 +11,14 @@ import { getApiUrl } from './api-config';
  */
 export async function extractImageFromUrl(url: string): Promise<string | null> {
   try {
+    console.log('[extractImageFromUrl] 開始:', url);
+    
     // API URLを環境に応じて設定（開発/本番環境を自動判定）
     const apiBaseUrl = getApiUrl().replace('/api', ''); // /api を除去してベースURLを取得
     
     // CORS対応のため、プロキシ経由でアクセス
     const proxyUrl = `${apiBaseUrl}/api/image-proxy?url=${encodeURIComponent(url)}`;
+    console.log('[extractImageFromUrl] プロキシURL:', proxyUrl);
     
     // タイムアウト付きのfetch
     const controller = new AbortController();
@@ -27,16 +30,20 @@ export async function extractImageFromUrl(url: string): Promise<string | null> {
     
     clearTimeout(timeoutId);
     
+    console.log('[extractImageFromUrl] レスポンスステータス:', response.status);
+    
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     
     const html = await response.text();
+    console.log('[extractImageFromUrl] HTML取得成功、長さ:', html.length);
     
     // Open Graph画像を抽出
     const ogImageMatch = html.match(/<meta property="og:image" content="([^"]+)"/i);
     if (ogImageMatch) {
       const imageUrl = ogImageMatch[1];
+      console.log('[extractImageFromUrl] Open Graph画像を発見:', imageUrl);
       // 相対URLを絶対URLに変換
       return resolveImageUrl(imageUrl, url);
     }
@@ -45,6 +52,7 @@ export async function extractImageFromUrl(url: string): Promise<string | null> {
     const twitterImageMatch = html.match(/<meta name="twitter:image" content="([^"]+)"/i);
     if (twitterImageMatch) {
       const imageUrl = twitterImageMatch[1];
+      console.log('[extractImageFromUrl] Twitter Card画像を発見:', imageUrl);
       return resolveImageUrl(imageUrl, url);
     }
     
@@ -52,15 +60,17 @@ export async function extractImageFromUrl(url: string): Promise<string | null> {
     const imgMatch = html.match(/<img[^>]+src="([^"]+)"/i);
     if (imgMatch) {
       const imageUrl = imgMatch[1];
+      console.log('[extractImageFromUrl] 最初のimgタグを発見:', imageUrl);
       return resolveImageUrl(imageUrl, url);
     }
     
+    console.warn('[extractImageFromUrl] 画像が見つかりませんでした');
     return null;
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      console.warn(`画像抽出がタイムアウトしました (${url})`);
+      console.warn(`[extractImageFromUrl] 画像抽出がタイムアウトしました (${url})`);
     } else {
-      console.warn(`画像抽出に失敗しました (${url}):`, error);
+      console.warn(`[extractImageFromUrl] 画像抽出に失敗しました (${url}):`, error);
     }
     return null;
   }

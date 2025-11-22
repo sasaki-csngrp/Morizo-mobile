@@ -124,8 +124,13 @@ const RecipeListModal: React.FC<RecipeListModalProps> = ({
     if (isOpen) {
       console.log('[RecipeListModal] selectionInfo:', selectionInfo);
       console.log('[RecipeListModal] currentStage:', currentStage);
+      console.log('[RecipeListModal] candidates:', candidates.map(c => ({
+        title: c.title,
+        urlsCount: c.urls?.length || 0,
+        urls: c.urls?.map(u => ({ url: u.url, image_url: u.image_url })) || []
+      })));
     }
-  }, [isOpen, selectionInfo, currentStage]);
+  }, [isOpen, selectionInfo, currentStage, candidates]);
 
   if (!isOpen) return null;
 
@@ -481,6 +486,11 @@ const styles = StyleSheet.create({
   },
   confirmationButtonCancel: {
     backgroundColor: '#9CA3AF',
+  },
+  confirmationButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   closeFooterButton: {
     backgroundColor: '#9CA3AF',

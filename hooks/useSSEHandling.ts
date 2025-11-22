@@ -160,6 +160,32 @@ export function useSSEHandling(
       // 選択要求が必要な場合
       if (typedResult?.menu_data?.requires_selection && typedResult?.menu_data?.candidates && typedResult?.menu_data?.task_id) {
         console.log('[DEBUG] Setting awaitingSelection from SSE');
+        
+        // デバッグ: candidatesの内容を確認（image_urlが含まれているか）
+        const candidates = typedResult.menu_data?.candidates || [];
+        console.log('[DEBUG] Candidates received:', {
+          count: candidates.length,
+          firstCandidate: candidates[0] ? {
+            title: candidates[0].title,
+            urlsCount: candidates[0].urls?.length || 0,
+            firstUrl: candidates[0].urls?.[0] ? {
+              url: candidates[0].urls[0].url,
+              image_url: candidates[0].urls[0].image_url,
+              image_urlType: typeof candidates[0].urls[0].image_url,
+              allFields: Object.keys(candidates[0].urls[0])
+            } : null
+          } : null,
+          allCandidates: candidates.map((c, i) => ({
+            index: i,
+            title: c.title,
+            urls: c.urls?.map(u => ({
+              url: u.url,
+              image_url: u.image_url,
+              image_urlType: typeof u.image_url
+            })) || []
+          }))
+        });
+        
         setAwaitingSelection(true);
         
         // ストリーミング進捗表示をAIレスポンスに置き換え（選択要求フラグ付き）

@@ -157,3 +157,19 @@ export async function updateRecipeRating(
   return await response.json();
 }
 
+// レシピ履歴削除API
+export async function deleteRecipeHistory(historyId: string): Promise<any> {
+  const apiUrl = `${getApiUrl()}/menu/history/${historyId}`;
+  
+  const response = await authenticatedFetch(apiUrl, {
+    method: 'DELETE',
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+  }
+  
+  return await response.json();
+}
+

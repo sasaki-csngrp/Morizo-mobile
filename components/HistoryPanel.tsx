@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet, Modal } from 'react-native';
-import { getMenuHistory } from '../api/menu-api';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet, Modal, Alert } from 'react-native';
+import { getMenuHistory, deleteRecipeHistory } from '../api/menu-api';
 import { Picker } from '@react-native-picker/picker';
 import IngredientDeleteModal from './IngredientDeleteModal';
 import RecipeRatingModal from './RecipeRatingModal';
@@ -96,6 +96,35 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, onClose }) => {
     await loadHistory();
   };
 
+  const handleRecipeDelete = async (recipe: HistoryRecipe) => {
+    const recipeTitle = recipe.title.replace(/^(主菜|副菜|汁物):\s*/, '');
+    
+    Alert.alert(
+      '削除確認',
+      `「${recipeTitle}」を削除しますか？`,
+      [
+        {
+          text: 'キャンセル',
+          style: 'cancel',
+        },
+        {
+          text: '削除',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteRecipeHistory(recipe.history_id);
+              // 削除成功後、履歴を再読み込み
+              await loadHistory();
+            } catch (error) {
+              console.error('Recipe delete failed:', error);
+              Alert.alert('エラー', '削除に失敗しました');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <Modal
       visible={isOpen}
@@ -116,7 +145,9 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, onClose }) => {
         <View style={styles.filters}>
           {/* 期間フィルター */}
           <View style={styles.filterGroup}>
-            <Text style={styles.filterLabel}>期間: {days}日間</Text>
+            <Text style={styles.filterLabel}>
+              期間: {days === 0 ? 'それ以前' : `${days}日間`}
+            </Text>
             <View style={styles.buttonGroup}>
               {[7, 14, 30].map((d) => (
                 <TouchableOpacity
@@ -129,6 +160,14 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, onClose }) => {
                   </Text>
                 </TouchableOpacity>
               ))}
+              <TouchableOpacity
+                onPress={() => setDays(0)}
+                style={[styles.filterButton, days === 0 && styles.filterButtonActive]}
+              >
+                <Text style={[styles.filterButtonText, days === 0 && styles.filterButtonTextActive]}>
+                  それ以前
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
           
@@ -211,6 +250,15 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, onClose }) => {
                             {/* コメントアイコン */}
                             {recipe.notes && (
                               <Text style={styles.commentIcon}>💬</Text>
+                            )}
+                            {/* 削除ボタン（それ以前選択時のみ表示） */}
+                            {days === 0 && (
+                              <TouchableOpacity
+                                onPress={() => handleRecipeDelete(recipe)}
+                                style={styles.deleteRecipeButton}
+                              >
+                                <Text style={styles.deleteRecipeButtonText}>🗑️</Text>
+                              </TouchableOpacity>
                             )}
                           </View>
                         </View>
@@ -426,6 +474,12 @@ const styles = StyleSheet.create({
   commentIcon: {
     fontSize: 16,
     color: '#2563eb',
+  },
+  deleteRecipeButton: {
+    padding: 4,
+  },
+  deleteRecipeButtonText: {
+    fontSize: 16,
   },
   warningText: {
     fontSize: 12,

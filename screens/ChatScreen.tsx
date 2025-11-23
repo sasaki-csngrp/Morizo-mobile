@@ -127,7 +127,7 @@ function ChatScreenContent() {
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView 
         style={styles.keyboardAvoidingView}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
         {/* ユーザープロフィールセクション（在庫・履歴ボタンとアバターアイコン） */}

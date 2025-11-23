@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet, Modal, TextInput, Alert } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import { getInventoryList, deleteInventoryItem, InventoryItem } from '../api/inventory-api';
 import { Picker } from '@react-native-picker/picker';
 import InventoryEditModal from './InventoryEditModal';
@@ -23,12 +24,22 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [isCSVUploadModalOpen, setIsCSVUploadModalOpen] = useState(false);
   const [isOCRModalOpen, setIsOCRModalOpen] = useState(false);
+  const [isFilterExpanded, setIsFilterExpanded] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       loadInventory();
+      // パネルが開かれた時に検索条件を閉じる
+      setIsFilterExpanded(false);
     }
-  }, [isOpen, sortBy, sortOrder]);
+  }, [isOpen]);
+
+  // ソート条件が変更された時だけ在庫を再読み込み
+  useEffect(() => {
+    if (isOpen) {
+      loadInventory();
+    }
+  }, [sortBy, sortOrder]);
 
   const loadInventory = async () => {
     setIsLoading(true);
@@ -128,63 +139,84 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
         </View>
         
         {/* フィルター */}
-        <View style={styles.filters}>
-          {/* 保管場所フィルター */}
-          <View style={styles.filterGroup}>
-            <Text style={styles.filterLabel}>保管場所</Text>
-            <Picker
-              selectedValue={storageLocationFilter}
-              onValueChange={(value) => setStorageLocationFilter(value)}
-              style={styles.picker}
-            >
-              <Picker.Item label="全て" value="" />
-              {storageLocations.map(location => (
-                <Picker.Item key={location} label={location} value={location} />
-              ))}
-            </Picker>
-          </View>
-          
-          {/* 検索フィルター */}
-          <View style={styles.filterGroup}>
-            <Text style={styles.filterLabel}>検索</Text>
-            <TextInput
-              style={styles.searchInput}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="アイテム名で検索..."
-              placeholderTextColor="#999"
+        <View style={styles.filtersContainer}>
+          {/* 検索条件の開閉ボタン */}
+          <TouchableOpacity
+            style={styles.filterToggleButton}
+            onPress={() => setIsFilterExpanded(!isFilterExpanded)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.filterToggleText}>
+              {isFilterExpanded ? '検索条件を閉じる' : '検索条件を開く'}
+            </Text>
+            <MaterialIcons
+              name={isFilterExpanded ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
+              size={24}
+              color="#1f2937"
             />
-          </View>
+          </TouchableOpacity>
           
-          {/* ソート */}
-          <View style={styles.sortGroup}>
-            <View style={styles.sortItem}>
-              <Text style={styles.filterLabel}>並び順</Text>
-              <Picker
-                selectedValue={sortBy}
-                onValueChange={(value) => setSortBy(value)}
-                style={styles.picker}
-              >
-                <Picker.Item label="登録日" value="created_at" />
-                <Picker.Item label="アイテム名" value="item_name" />
-                <Picker.Item label="数量" value="quantity" />
-                <Picker.Item label="保管場所" value="storage_location" />
-                <Picker.Item label="消費期限" value="expiry_date" />
-              </Picker>
+          {/* 検索条件（開閉可能） */}
+          {isFilterExpanded && (
+            <View style={styles.filters}>
+              {/* 保管場所フィルター */}
+              <View style={styles.filterGroup}>
+                <Text style={styles.filterLabel}>保管場所</Text>
+                <Picker
+                  selectedValue={storageLocationFilter}
+                  onValueChange={(value) => setStorageLocationFilter(value)}
+                  style={styles.picker}
+                >
+                  <Picker.Item label="全て" value="" />
+                  {storageLocations.map(location => (
+                    <Picker.Item key={location} label={location} value={location} />
+                  ))}
+                </Picker>
+              </View>
+              
+              {/* 検索フィルター */}
+              <View style={styles.filterGroup}>
+                <Text style={styles.filterLabel}>検索</Text>
+                <TextInput
+                  style={styles.searchInput}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder="アイテム名で検索..."
+                  placeholderTextColor="#999"
+                />
+              </View>
+              
+              {/* ソート */}
+              <View style={styles.sortGroup}>
+                <View style={styles.sortItem}>
+                  <Text style={styles.filterLabel}>並び順</Text>
+                  <Picker
+                    selectedValue={sortBy}
+                    onValueChange={(value) => setSortBy(value)}
+                    style={styles.picker}
+                  >
+                    <Picker.Item label="登録日" value="created_at" />
+                    <Picker.Item label="アイテム名" value="item_name" />
+                    <Picker.Item label="数量" value="quantity" />
+                    <Picker.Item label="保管場所" value="storage_location" />
+                    <Picker.Item label="消費期限" value="expiry_date" />
+                  </Picker>
+                </View>
+                
+                <View style={styles.sortItem}>
+                  <Text style={styles.filterLabel}>順序</Text>
+                  <Picker
+                    selectedValue={sortOrder}
+                    onValueChange={(value) => setSortOrder(value)}
+                    style={styles.picker}
+                  >
+                    <Picker.Item label="降順" value="desc" />
+                    <Picker.Item label="昇順" value="asc" />
+                  </Picker>
+                </View>
+              </View>
             </View>
-            
-            <View style={styles.sortItem}>
-              <Text style={styles.filterLabel}>順序</Text>
-              <Picker
-                selectedValue={sortOrder}
-                onValueChange={(value) => setSortOrder(value)}
-                style={styles.picker}
-              >
-                <Picker.Item label="降順" value="desc" />
-                <Picker.Item label="昇順" value="asc" />
-              </Picker>
-            </View>
-          </View>
+          )}
         </View>
         
         {/* 在庫リスト */}
@@ -328,10 +360,28 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: '#6b7280',
   },
-  filters: {
-    padding: 16,
+  filtersContainer: {
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
+  },
+  filterToggleButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#f9fafb',
+  },
+  filterToggleText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  filters: {
+    padding: 16,
+    paddingTop: 0,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
   },
   addButtonContainer: {
     padding: 16,

@@ -183,23 +183,14 @@ const SelectionOptions: React.FC<SelectionOptionsProps> = ({
   return (
     <View style={styles.container}>
       {/* Phase 2.1: 段階情報の表示 */}
-      {(currentStage || menuCategory) && (
+      {currentStage && (
         <View style={styles.stageContainer}>
           <View style={styles.badgeContainer}>
-            {currentStage && (
-              <View style={[styles.badge, styles.mainBadge, { marginRight: 8 }]}>
-                <Text style={styles.badgeText}>
-                  {stageLabel}を選んでください
-                </Text>
-              </View>
-            )}
-            {menuCategory && (
-              <View style={[styles.badge, styles.categoryBadge, { marginRight: 8 }]}>
-                <Text style={styles.badgeText}>
-                  {menuCategoryLabel}
-                </Text>
-              </View>
-            )}
+            <View style={[styles.badge, styles.mainBadge]}>
+              <Text style={styles.badgeText}>
+                {stageLabel}を選んでください
+              </Text>
+            </View>
           </View>
         </View>
       )}

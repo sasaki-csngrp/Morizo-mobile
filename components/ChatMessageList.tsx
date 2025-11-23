@@ -79,6 +79,12 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({
             <Text style={styles.emptyChatText}>
               Morizo AIとチャットを開始しましょう！
             </Text>
+            <Text style={styles.emptyChatHint}>
+              初めての方は、まず在庫を登録してください。
+            </Text>
+            <Text style={styles.emptyChatHint}>
+              チャットにヘルプと入力すると、使い方が表示されます。
+            </Text>
           </View>
         ) : (
           chatMessages.map((message, index) => (
@@ -222,6 +228,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
+    marginBottom: 12,
+  },
+  emptyChatHint: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 20,
   },
   messageContainer: {
     marginBottom: 15,

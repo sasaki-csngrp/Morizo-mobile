@@ -232,6 +232,121 @@ export function useChatMessages(
     }
   };
 
+  // 直接メッセージを送信する関数（ボタンからの送信用）
+  const sendTextMessageDirect = async (message: string) => {
+    if (!message.trim()) return;
+
+    setIsTextChatLoading(true);
+    
+    // ユーザーメッセージを追加
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      type: 'user',
+      content: message,
+      timestamp: new Date(),
+    };
+    setChatMessages(prev => [...prev, userMessage]);
+    
+    // SSEセッションIDの決定
+    let sseSessionId: string;
+    const isConfirmationRequest = awaitingConfirmation && !!confirmationSessionId;
+    
+    if (isConfirmationRequest) {
+      sseSessionId = confirmationSessionId;
+    } else {
+      sseSessionId = generateSSESessionId();
+    }
+    
+    // ストリーミング進捗表示を追加
+    const streamingMessage: ChatMessage = {
+      id: (Date.now() + 1).toString(),
+      type: 'streaming',
+      content: '',
+      timestamp: new Date(),
+      sseSessionId: sseSessionId,
+    };
+    setChatMessages(prev => [...prev, streamingMessage]);
+    
+    // スクロールを最下部に移動
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+    
+    try {
+      const apiUrl = `${getApiUrl()}/chat`;
+      
+      // 認証トークンを取得
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      
+      if (!currentSession?.access_token) {
+        throw new Error('認証トークンが取得できません');
+      }
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentSession.access_token}`,
+        },
+        body: JSON.stringify({ 
+          message: message,
+          sse_session_id: sseSessionId,
+          confirm: isConfirmationRequest
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`チャットAPI エラー: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // ヘルプ応答の検出
+      const isHelpResponse = data.response && (
+        data.response.includes('4つの便利な機能') ||
+        data.response.includes('どの機能について知りたいですか') ||
+        data.response.includes('食材を追加する') ||
+        data.response.includes('食材を削除する') ||
+        data.response.includes('主菜を選ぶ') ||
+        data.response.includes('副菜を選ぶ') ||
+        data.response.includes('汁物を選ぶ') ||
+        data.response.includes('在庫一覧を確認する') ||
+        data.response.includes('レシピ履歴を確認する')
+      );
+      
+      // ヘルプ応答の場合は直接処理
+      if (isHelpResponse && data.success && data.response) {
+        setChatMessages(prev => prev.map((msg): ChatMessage => 
+          msg.type === 'streaming' && msg.sseSessionId === sseSessionId
+            ? { type: 'ai' as const, content: data.response, id: msg.id, timestamp: msg.timestamp }
+            : msg
+        ));
+        setIsTextChatLoading(false);
+        return;
+      }
+      
+      // 通常の応答の場合はSSEで処理されるため、ここでは何もしない
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '不明なエラー';
+      
+      // エラー時はストリーミング進捗表示をエラーメッセージに置き換え
+      setChatMessages(prev => prev.map((msg) => 
+        msg.type === 'streaming' && msg.sseSessionId === sseSessionId
+          ? { 
+              id: msg.id,
+              type: 'ai', 
+              content: `エラー: ${errorMessage}`,
+              timestamp: msg.timestamp
+            }
+          : msg
+      ));
+      
+      showErrorAlert(`チャット送信に失敗しました: ${errorMessage}`);
+    } finally {
+      setIsTextChatLoading(false);
+    }
+  };
+
   const clearChatHistory = (
     setAwaitingSelection: React.Dispatch<React.SetStateAction<boolean>>,
     clearSelectedRecipes: () => void
@@ -255,6 +370,7 @@ export function useChatMessages(
     helpSessionId,
     setHelpSessionId,
     sendTextMessage,
+    sendTextMessageDirect,
     clearChatHistory,
     getApiUrl: () => getApiUrl(), // 共通関数をラップして返す
   };

@@ -25,6 +25,9 @@ import ChatInput from '../components/ChatInput';
 import ChatMessageList from '../components/ChatMessageList';
 import { ProfileSection } from '../components/ProfileSection';
 import { AuthGuard } from '../components/AuthGuard';
+import InventorySelectionModal from '../components/InventorySelectionModal';
+import OtherProposalSelectionModal from '../components/OtherProposalSelectionModal';
+import { InventoryItem } from '../api/inventory-api';
 import { useModalManagement } from '../hooks/useModalManagement';
 import { useRecipeSelection } from '../hooks/useRecipeSelection';
 import { useChatMessages } from '../hooks/useChatMessages';
@@ -38,6 +41,8 @@ function ChatScreenContent() {
   const [isVoiceChatLoading, setIsVoiceChatLoading] = useState(false);
   const [awaitingSelection, setAwaitingSelection] = useState<boolean>(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isInventorySelectionModalOpen, setIsInventorySelectionModalOpen] = useState(false);
+  const [isOtherProposalSelectionModalOpen, setIsOtherProposalSelectionModalOpen] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const { user } = useAuth();
 
@@ -85,6 +90,39 @@ function ChatScreenContent() {
     return undefined;
   }, [chatMessages]);
 
+  // 主菜提案リクエスト処理
+  const handleRequestMainProposal = async (mainIngredient?: string) => {
+    // 主菜提案メッセージを生成
+    const message = mainIngredient
+      ? `${mainIngredient}の主菜を5件提案して`
+      : '主菜を5件提案して';
+
+    // メッセージを送信（sendTextMessageDirect内でユーザーメッセージを追加）
+    await chatMessagesHook.sendTextMessageDirect(message);
+  };
+
+  // その他提案リクエスト処理
+  const handleRequestOtherProposal = async (message: string) => {
+    // メッセージを送信（sendTextMessageDirect内でユーザーメッセージを追加）
+    await chatMessagesHook.sendTextMessageDirect(message);
+  };
+
+  // 在庫選択ハンドラー
+  const handleInventorySelect = (selectedItem: InventoryItem | null) => {
+    setIsInventorySelectionModalOpen(false);
+    if (selectedItem) {
+      handleRequestMainProposal(selectedItem.item_name);
+    } else {
+      handleRequestMainProposal();
+    }
+  };
+
+  // その他提案選択ハンドラー
+  const handleOtherProposalSelect = (message: string) => {
+    setIsOtherProposalSelectionModalOpen(false);
+    handleRequestOtherProposal(message);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView 
@@ -101,6 +139,12 @@ function ChatScreenContent() {
           }}
           onOpenInventory={() => {
             modalManagement.openInventoryPanel();
+          }}
+          onRequestMainProposal={() => {
+            setIsInventorySelectionModalOpen(true);
+          }}
+          onRequestOtherProposal={() => {
+            setIsOtherProposalSelectionModalOpen(true);
           }}
         />
 
@@ -202,6 +246,20 @@ function ChatScreenContent() {
           setIsProfileModalOpen(false);
           modalManagement.openInventoryPanel();
         }}
+      />
+
+      {/* 在庫選択モーダル */}
+      <InventorySelectionModal
+        isOpen={isInventorySelectionModalOpen}
+        onClose={() => setIsInventorySelectionModalOpen(false)}
+        onSelect={handleInventorySelect}
+      />
+
+      {/* その他提案選択モーダル */}
+      <OtherProposalSelectionModal
+        isOpen={isOtherProposalSelectionModalOpen}
+        onClose={() => setIsOtherProposalSelectionModalOpen(false)}
+        onSelect={handleOtherProposalSelect}
       />
     </SafeAreaView>
   );

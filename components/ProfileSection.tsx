@@ -6,17 +6,43 @@ interface ProfileSectionProps {
   onPress: () => void;
   onOpenHistory?: () => void;
   onOpenInventory?: () => void;
+  onRequestMainProposal?: () => void;
+  onRequestOtherProposal?: () => void;
 }
 
 export function ProfileSection({ 
   userEmail, 
   onPress, 
   onOpenHistory, 
-  onOpenInventory 
+  onOpenInventory,
+  onRequestMainProposal,
+  onRequestOtherProposal,
 }: ProfileSectionProps) {
   return (
     <View style={styles.profileSection}>
       <View style={styles.buttonsContainer}>
+        {/* 主菜提案ボタン */}
+        {onRequestMainProposal && (
+          <TouchableOpacity
+            style={styles.proposalButton}
+            onPress={onRequestMainProposal}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.proposalButtonText}>+主菜</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* その他提案ボタン */}
+        {onRequestOtherProposal && (
+          <TouchableOpacity
+            style={[styles.proposalButton, styles.proposalButtonOther]}
+            onPress={onRequestOtherProposal}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.proposalButtonText}>+その他</Text>
+          </TouchableOpacity>
+        )}
+
         {/* 在庫ボタン */}
         {onOpenInventory && (
           <TouchableOpacity
@@ -88,6 +114,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#374151',
+  },
+  proposalButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#2563eb',
+  },
+  proposalButtonOther: {
+    backgroundColor: '#16a34a',
+  },
+  proposalButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
   },
   avatarButton: {
     padding: 8,

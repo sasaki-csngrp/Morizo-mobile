@@ -53,6 +53,87 @@ const RecipeListModal: React.FC<RecipeListModalProps> = ({
     return `レシピ提案（${candidates.length}件）`;
   };
 
+  // 不足食材チェックから除外する食材リスト（一般的な調味料・水など）
+  const EXCLUDED_INGREDIENTS = [
+    '水',
+    'はちみつ',
+    'ハチミツ',
+    '塩',
+    'こしょう',
+    '胡椒',
+    'コショウ',
+    '醤油',
+    'しょうゆ',
+    '味噌',
+    'みそ',
+    '砂糖',
+    'みりん',
+    '酒',
+    '料理酒',
+    '酢',
+    '油',
+    'サラダ油',
+    'オリーブオイル',
+    'ごま油',
+    'バター',
+    'マヨネーズ',
+    'ケチャップ',
+    'ウスターソース',
+    'オイスターソース',
+    '豆板醤',
+    '甜麺醤',
+    '味の素',
+    'だし',
+    'だしの素',
+    'コンソメ',
+    '顆粒だし',
+    'チューブ生姜',
+    'チューブにんにく',
+    'ネギ分', // 「ネギ分」のような表記も除外
+    'ブラックペッパー',
+    'ブラックペッパ',
+    'ペッパー',
+    'ガーリックパウダー',
+    'ガーリックパウダ',
+    'にんにくパウダー',
+    'にんにくパウダ',
+    'パルメザンチーズ',
+    'パルメザン',
+    'パルメザンチーズ粉',
+  ].map(ing => ing.toLowerCase());
+
+  // 不足食材を判定する関数
+  const getMissingIngredients = (recipeIngredients: string[]): string[] => {
+    if (!selectionInfo?.usedIngredients || selectionInfo.usedIngredients.length === 0) {
+      return []; // 使える食材情報がない場合は判定しない
+    }
+
+    const usedIngredientsSet = new Set(
+      selectionInfo.usedIngredients.map(ing => ing.trim().toLowerCase())
+    );
+
+    return recipeIngredients.filter(ingredient => {
+      const normalizedIngredient = ingredient.trim().toLowerCase();
+      
+      // 除外リストに含まれる食材は不足食材として判定しない
+      if (EXCLUDED_INGREDIENTS.some(excluded => 
+        normalizedIngredient.includes(excluded) || excluded.includes(normalizedIngredient)
+      )) {
+        return false;
+      }
+
+      // 完全一致をチェック
+      if (usedIngredientsSet.has(normalizedIngredient)) {
+        return false;
+      }
+      // 部分一致もチェック（「豚バラ肉」と「豚バラ」など）
+      const isContained = Array.from(usedIngredientsSet).some(usedIng => 
+        normalizedIngredient.includes(usedIng) || usedIng.includes(normalizedIngredient)
+      );
+      return !isContained;
+    });
+  };
+
   // 決定ボタンのクリックハンドラー
   const handleConfirm = async () => {
     if (!selectionInfo || selectedIndex === null) return;
@@ -205,9 +286,53 @@ const RecipeListModal: React.FC<RecipeListModalProps> = ({
                 {candidate.ingredients && candidate.ingredients.length > 0 && (
                   <View style={styles.section}>
                     <Text style={styles.sectionLabel}>📋 使用食材</Text>
-                    <Text style={styles.sectionContent}>
-                      {candidate.ingredients.join(', ')}
-                    </Text>
+                    <View style={styles.ingredientsContainer}>
+                      {(() => {
+                        const missingIngredients = getMissingIngredients(candidate.ingredients);
+                        const availableIngredients = candidate.ingredients.filter(
+                          ing => !missingIngredients.includes(ing)
+                        );
+                        
+                        return (
+                          <>
+                            {availableIngredients.length > 0 && (
+                              <Text style={styles.sectionContent}>
+                                {availableIngredients.join(', ')}
+                              </Text>
+                            )}
+                            {missingIngredients.length > 0 && (
+                              <View style={styles.missingIngredientsContainer}>
+                                {availableIngredients.length > 0 && (
+                                  <Text style={styles.sectionContent}>, </Text>
+                                )}
+                                <View style={styles.missingIngredientsBadges}>
+                                  {missingIngredients.map((ingredient, idx) => (
+                                    <View key={idx} style={styles.missingIngredientBadge}>
+                                      <Text style={styles.missingIngredientText}>
+                                        ⚠️ {ingredient}
+                                      </Text>
+                                    </View>
+                                  ))}
+                                </View>
+                              </View>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </View>
+                    {(() => {
+                      const missingIngredients = getMissingIngredients(candidate.ingredients);
+                      if (missingIngredients.length > 0) {
+                        return (
+                          <View style={styles.missingWarningContainer}>
+                            <Text style={styles.missingWarningText}>
+                              ⚠️ {missingIngredients.length}種類の食材が使える食材に含まれていません
+                            </Text>
+                          </View>
+                        );
+                      }
+                      return null;
+                    })()}
                   </View>
                 )}
                 
@@ -401,6 +526,48 @@ const styles = StyleSheet.create({
   sectionContent: {
     fontSize: 14,
     color: '#374151',
+  },
+  ingredientsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  missingIngredientsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  missingIngredientsBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  missingIngredientBadge: {
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginVertical: 2,
+  },
+  missingIngredientText: {
+    fontSize: 12,
+    color: '#991B1B',
+    fontWeight: '500',
+  },
+  missingWarningContainer: {
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#FDE047',
+  },
+  missingWarningText: {
+    fontSize: 12,
+    color: '#92400E',
+    fontWeight: '500',
   },
   description: {
     fontSize: 14,

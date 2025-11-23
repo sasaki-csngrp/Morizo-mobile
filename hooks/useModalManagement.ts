@@ -11,6 +11,7 @@ export interface RecipeListModalSelectionInfo {
   currentStage?: 'main' | 'sub' | 'soup' | 'other';
   onNextStageRequested?: (sseSessionId?: string) => void;
   isLoading?: boolean;
+  usedIngredients?: string[]; // 使える食材リスト（不足食材判定用）
 }
 
 /**

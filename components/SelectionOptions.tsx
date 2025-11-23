@@ -61,7 +61,8 @@ const SelectionOptions: React.FC<SelectionOptionsProps> = ({
         onSelect,
         currentStage,
         onNextStageRequested,
-        isLoading
+        isLoading,
+        usedIngredients // 使える食材リストを渡す（不足食材判定用）
       };
       console.log('[SelectionOptions] handleViewList - selectionInfo:', selectionInfo);
       console.log('[SelectionOptions] handleViewList - candidates:', candidates.length);

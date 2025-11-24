@@ -125,70 +125,51 @@ function ChatScreenContent() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* チャット履歴エリア */}
+      <ChatMessageList
+        chatMessages={chatMessages}
+        scrollViewRef={scrollViewRef}
+        isTextChatLoading={isTextChatLoading}
+        awaitingSelection={awaitingSelection}
+        selectedRecipes={recipeSelection.selectedRecipes}
+        isSavingMenu={recipeSelection.isSavingMenu}
+        savedMessage={recipeSelection.savedMessage}
+        onSaveMenu={recipeSelection.handleSaveMenu}
+        onClearHistory={() => {
+          Alert.alert(
+            'チャット履歴をクリア',
+            'チャット履歴と選択済みレシピを削除しますか？',
+            [
+              {
+                text: 'キャンセル',
+                style: 'cancel',
+              },
+              {
+                text: 'クリア',
+                style: 'destructive',
+                onPress: () => {
+                  chatMessagesHook.clearChatHistory(setAwaitingSelection, recipeSelection.clearSelectedRecipes);
+                },
+              },
+            ]
+          );
+        }}
+        onSelect={recipeSelection.handleSelection}
+        onViewList={modalManagement.handleViewList}
+        onRequestMore={sseHandling.handleRequestMore}
+        onNextStageRequested={sseHandling.handleNextStageRequested}
+        onOpenRecipeViewer={modalManagement.openRecipeViewer}
+        createOnCompleteHandler={sseHandling.createOnCompleteHandler}
+        createOnErrorHandler={sseHandling.createOnErrorHandler}
+        createOnTimeoutHandler={sseHandling.createOnTimeoutHandler}
+        createOnProgressHandler={sseHandling.createOnProgressHandler}
+      />
+
+      {/* テキストチャット入力欄 - キーボードの上に移動 */}
       <KeyboardAvoidingView 
-        style={styles.keyboardAvoidingView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
-        {/* ユーザープロフィールセクション（在庫・履歴ボタンとアバターアイコン） */}
-        <ProfileSection
-          userEmail={user?.email}
-          onPress={() => setIsProfileModalOpen(true)}
-          onOpenHistory={() => {
-            modalManagement.openHistoryPanel();
-          }}
-          onOpenInventory={() => {
-            modalManagement.openInventoryPanel();
-          }}
-          onRequestMainProposal={() => {
-            setIsInventorySelectionModalOpen(true);
-          }}
-          onRequestOtherProposal={() => {
-            setIsOtherProposalSelectionModalOpen(true);
-          }}
-        />
-
-        {/* チャット履歴エリア */}
-        <ChatMessageList
-          chatMessages={chatMessages}
-          scrollViewRef={scrollViewRef}
-          isTextChatLoading={isTextChatLoading}
-          awaitingSelection={awaitingSelection}
-          selectedRecipes={recipeSelection.selectedRecipes}
-          isSavingMenu={recipeSelection.isSavingMenu}
-          savedMessage={recipeSelection.savedMessage}
-          onSaveMenu={recipeSelection.handleSaveMenu}
-          onClearHistory={() => {
-            Alert.alert(
-              'チャット履歴をクリア',
-              'チャット履歴と選択済みレシピを削除しますか？',
-              [
-                {
-                  text: 'キャンセル',
-                  style: 'cancel',
-                },
-                {
-                  text: 'クリア',
-                  style: 'destructive',
-                  onPress: () => {
-                    chatMessagesHook.clearChatHistory(setAwaitingSelection, recipeSelection.clearSelectedRecipes);
-                  },
-                },
-              ]
-            );
-          }}
-          onSelect={recipeSelection.handleSelection}
-          onViewList={modalManagement.handleViewList}
-          onRequestMore={sseHandling.handleRequestMore}
-          onNextStageRequested={sseHandling.handleNextStageRequested}
-          onOpenRecipeViewer={modalManagement.openRecipeViewer}
-          createOnCompleteHandler={sseHandling.createOnCompleteHandler}
-          createOnErrorHandler={sseHandling.createOnErrorHandler}
-          createOnTimeoutHandler={sseHandling.createOnTimeoutHandler}
-          createOnProgressHandler={sseHandling.createOnProgressHandler}
-        />
-
-        {/* テキストチャット入力欄 */}
         <ChatInput
           textMessage={chatMessagesHook.textMessage}
           setTextMessage={chatMessagesHook.setTextMessage}
@@ -201,9 +182,27 @@ function ChatScreenContent() {
           onStartRecording={voiceRecording.startRecording}
           onStopRecording={voiceRecording.stopRecording}
         />
-
-        <StatusBar style="auto" />
       </KeyboardAvoidingView>
+
+      {/* ユーザープロフィールセクション（在庫・履歴ボタンとアバターアイコン）- 画面最下部に固定 */}
+      <ProfileSection
+        userEmail={user?.email}
+        onPress={() => setIsProfileModalOpen(true)}
+        onOpenHistory={() => {
+          modalManagement.openHistoryPanel();
+        }}
+        onOpenInventory={() => {
+          modalManagement.openInventoryPanel();
+        }}
+        onRequestMainProposal={() => {
+          setIsInventorySelectionModalOpen(true);
+        }}
+        onRequestOtherProposal={() => {
+          setIsOtherProposalSelectionModalOpen(true);
+        }}
+      />
+
+      <StatusBar style="auto" />
 
       {/* レシピビューアー画面 */}
       <RecipeViewerScreen
@@ -277,8 +276,5 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
-  },
-  keyboardAvoidingView: {
-    flex: 1,
   },
 });

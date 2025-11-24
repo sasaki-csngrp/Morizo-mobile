@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, ScrollView } from 'react-native';
 
 interface ProfileSectionProps {
   userEmail: string | undefined;
@@ -20,55 +20,63 @@ export function ProfileSection({
 }: ProfileSectionProps) {
   return (
     <View style={styles.profileSection}>
-      <View style={styles.buttonsContainer}>
-        {/* 主菜提案ボタン */}
-        {onRequestMainProposal && (
-          <TouchableOpacity
-            style={styles.proposalButton}
-            onPress={onRequestMainProposal}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.proposalButtonText}>+主菜</Text>
-          </TouchableOpacity>
-        )}
+      {/* 横スクロール可能なボタン群 */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <View style={styles.buttonsContainer}>
+          {/* 主菜提案ボタン */}
+          {onRequestMainProposal && (
+            <TouchableOpacity
+              style={styles.proposalButton}
+              onPress={onRequestMainProposal}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.proposalButtonText}>+ 主菜提案</Text>
+            </TouchableOpacity>
+          )}
 
-        {/* その他提案ボタン */}
-        {onRequestOtherProposal && (
-          <TouchableOpacity
-            style={[styles.proposalButton, styles.proposalButtonOther]}
-            onPress={onRequestOtherProposal}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.proposalButtonText}>+その他</Text>
-          </TouchableOpacity>
-        )}
+          {/* その他提案ボタン */}
+          {onRequestOtherProposal && (
+            <TouchableOpacity
+              style={[styles.proposalButton, styles.proposalButtonOther]}
+              onPress={onRequestOtherProposal}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.proposalButtonText}>+ その他提案</Text>
+            </TouchableOpacity>
+          )}
 
-        {/* 在庫ボタン */}
-        {onOpenInventory && (
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={onOpenInventory}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.actionButtonIcon}>📦</Text>
-            <Text style={styles.actionButtonText}>在庫</Text>
-          </TouchableOpacity>
-        )}
+          {/* 在庫ボタン */}
+          {onOpenInventory && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={onOpenInventory}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.actionButtonIcon}>📦</Text>
+              <Text style={styles.actionButtonText}>在庫</Text>
+            </TouchableOpacity>
+          )}
 
-        {/* 履歴ボタン */}
-        {onOpenHistory && (
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={onOpenHistory}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.actionButtonIcon}>📅</Text>
-            <Text style={styles.actionButtonText}>履歴</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+          {/* 履歴ボタン */}
+          {onOpenHistory && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={onOpenHistory}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.actionButtonIcon}>📅</Text>
+              <Text style={styles.actionButtonText}>履歴</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </ScrollView>
 
-      {/* ユーザーアイコン */}
+      {/* ユーザーアイコン（常に右側に固定） */}
       <TouchableOpacity style={styles.avatarButton} onPress={onPress}>
         <View style={styles.avatarContainer}>
           <Text style={styles.avatarText}>
@@ -83,15 +91,20 @@ export function ProfileSection({
 const styles = StyleSheet.create({
   profileSection: {
     backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? 32 : 10,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'android' ? 16 : 10,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    gap: 8,
+  },
+  scrollContainer: {
+    flex: 1,
+    marginLeft: 20,
+  },
+  scrollContent: {
+    paddingRight: 8,
   },
   buttonsContainer: {
     flexDirection: 'row',
@@ -131,6 +144,8 @@ const styles = StyleSheet.create({
   },
   avatarButton: {
     padding: 8,
+    marginLeft: 8,
+    marginRight: 20,
     marginTop: Platform.OS === 'android' ? 4 : 0,
   },
   avatarContainer: {

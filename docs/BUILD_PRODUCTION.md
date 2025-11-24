@@ -283,14 +283,61 @@ npx expo prebuild
 # ios/ フォルダをXcodeで開き、Archiveを作成
 ```
 
-## アプリストアへの提出
+## アプリストアへの登録と提出
 
 ### Google Play Store（Android）
 
-1. **AABファイルの準備**: EAS Buildで`--type app-bundle`を使用
+#### 1. Google Play Consoleアカウントの登録
+
+**登録料金**: **$25（一度限りの登録料）**
+
+**必要な情報**:
+- Googleアカウント（Gmailアカウント）
+- 開発者名（個人または組織名）
+- 連絡先情報（メールアドレス、電話番号）
+- 支払い情報（クレジットカードまたはデビットカード）
+- 開発者の住所情報
+
+**登録手順**:
+
+1. **Google Play Consoleにアクセス**
+   - [Google Play Console](https://play.google.com/console/)にアクセス
+   - Googleアカウントでログイン
+
+2. **開発者アカウントの作成**
+   - 「開発者として登録」をクリック
+   - 開発者名を入力（個人名または組織名）
+   - 国/地域を選択（変更不可）
+   - 利用規約に同意
+
+3. **登録料金の支払い**
+   - $25の一度限りの登録料を支払い
+   - クレジットカードまたはデビットカードで決済
+   - 支払い完了後、即座にアカウントが有効化
+
+4. **アカウント情報の完成**
+   - 連絡先情報を入力
+   - 開発者の住所を入力
+   - 必要に応じて、組織情報を追加
+
+**注意事項**:
+- 登録料金は**一度限り**で、アプリの公開数に制限はありません
+- アカウントは**即座に有効化**され、すぐにアプリを公開できます
+- 開発者名は公開され、変更は困難です（慎重に決定）
+- 国/地域は登録時に選択し、後から変更できません
+
+#### 2. アプリの提出手順
+
+1. **AABファイルの準備**: EAS Buildで`--profile production`を使用（デフォルトでAABを生成）
 2. **Google Play Console**にアクセス
 3. **アプリを作成** → **リリース** → **本番環境**
 4. AABファイルをアップロード
+5. **ストア掲載情報**を入力：
+   - アプリ名、説明、スクリーンショット
+   - アイコン、機能グラフィック
+   - プライバシーポリシーURL（必須）
+   - カテゴリ、コンテンツレーティング
+6. **審査提出**（通常1-3営業日で審査完了）
 
 または、EAS Submitを使用：
 
@@ -298,21 +345,128 @@ npx expo prebuild
 eas submit --platform android
 ```
 
+**提出前に必要な準備**:
+- ✅ プライバシーポリシー（Web上で公開されているURLが必要）
+- ✅ アプリアイコン（512x512px、PNG形式）
+- ✅ スクリーンショット（最低2枚、推奨5-8枚）
+- ✅ アプリ説明文（日本語・英語など）
+- ✅ 機能グラフィック（オプション、推奨）
+
 ### Apple App Store（iOS）
 
-1. **IPAファイルの準備**: EAS BuildでiOSビルドを作成
-2. **App Store Connect**にアクセス
-3. **App Store** → **+ バージョンまたはプラットフォーム**
-4. IPAファイルをアップロード
+#### 1. Apple Developer Programへの登録
 
-または、EAS Submitを使用：
+**登録料金**: **年間$99（自動更新）**
+
+**必要な情報**:
+- Apple ID（既存のApple IDを使用可能）
+- 個人情報または組織情報
+   - **個人の場合**: 氏名、住所、電話番号
+   - **組織の場合**: 法人名、住所、電話番号、D-U-N-S番号（9桁の識別番号）
+- 支払い情報（クレジットカード）
+- 税務情報（W-9フォームなど、米国外の場合は該当する税務情報）
+
+**登録手順**:
+
+1. **Apple Developer Programにアクセス**
+   - [Apple Developer Program](https://developer.apple.com/programs/)にアクセス
+   - Apple IDでログイン（既存のApple IDを使用可能）
+
+2. **登録タイプの選択**
+   - **個人（Individual）**: 個人名で登録
+   - **組織（Organization）**: 法人名で登録
+     - 組織の場合は**D-U-N-S番号**が必要（無料で取得可能）
+
+3. **情報の入力**
+   - 個人情報または組織情報を入力
+   - 連絡先情報を入力
+   - 支払い情報を入力
+
+4. **登録料金の支払い**
+   - 年間$99の登録料を支払い
+   - クレジットカードで決済
+
+5. **審査プロセス**
+   - 登録申請後、**審査プロセス**が開始（通常1-2週間）
+   - 個人登録: 比較的早く承認（数日〜1週間程度）
+   - 組織登録: D-U-N-S番号の確認などで時間がかかる場合あり（1-2週間程度）
+   - 審査完了後、メールで通知
+
+6. **アカウントの有効化**
+   - 審査完了後、Apple Developerアカウントが有効化
+   - App Store Connectにアクセス可能に
+
+**注意事項**:
+- 登録料金は**年間$99**で、毎年自動更新されます
+- 審査プロセスがあるため、**登録から有効化まで時間がかかる**可能性があります
+- 組織登録の場合、**D-U-N-S番号**の取得が必要（[D-U-N-S番号の取得](https://www.dnb.com/duns-number.html)）
+- 登録完了後、**App Store Connect**でアプリを管理できます
+
+**D-U-N-S番号の取得（組織登録の場合）**:
+- [D&B公式サイト](https://www.dnb.com/duns-number.html)から無料で取得可能
+- 取得には数日〜数週間かかる場合があります
+- 既に取得済みの場合は、その番号を使用
+
+#### 2. アプリの提出手順
+
+1. **IPAファイルの準備**: EAS Buildで`--platform ios --profile production`を使用
+2. **App Store Connect**にアクセス
+   - [App Store Connect](https://appstoreconnect.apple.com/)にアクセス
+   - Apple Developerアカウントでログイン
+
+3. **アプリの作成**
+   - **マイApp** → **+** → **新しいApp**をクリック
+   - アプリ情報を入力：
+     - プラットフォーム（iOS）
+     - アプリ名（表示名、30文字以内）
+     - プライマリ言語
+     - バンドルID（`app.json`の`ios.bundleIdentifier`と一致させる）
+     - SKU（一意の識別子、内部使用のみ）
+
+4. **アプリ情報の完成**
+   - **App情報**タブで基本情報を入力
+   - **価格と販売状況**を設定
+   - **Appプライバシー**でプライバシー情報を設定（必須）
+
+5. **バージョン情報の入力**
+   - **App Store**タブ → **+ バージョンまたはプラットフォーム**
+   - バージョン番号を入力
+   - スクリーンショットをアップロード（必須）
+   - アプリ説明文を入力
+   - キーワード、サポートURL、マーケティングURLを入力
+
+6. **ビルドの提出**
+   - **ビルド**セクションで、EAS Buildで作成したIPAを選択
+   - または、EAS Submitを使用：
 
 ```bash
 eas submit --platform ios
 ```
 
+7. **審査提出**
+   - すべての情報が完成したら、**審査に提出**をクリック
+   - 審査は通常**1-3営業日**で完了（初回は長めに時間がかかる場合あり）
+
+**提出前に必要な準備**:
+- ✅ プライバシーポリシー（Web上で公開されているURLが必要）
+- ✅ アプリアイコン（1024x1024px、PNG形式、透明度なし）
+- ✅ スクリーンショット（各デバイスサイズで最低1枚、推奨5-8枚）
+  - iPhone 6.7インチ（1290 x 2796px）
+  - iPhone 6.5インチ（1242 x 2688px）
+  - iPad Pro 12.9インチ（2048 x 2732px）など
+- ✅ アプリ説明文（日本語・英語など）
+- ✅ サポートURL（必須）
+- ✅ 年齢制限情報
+- ✅ Appプライバシー情報（必須、2020年12月以降）
+
+**審査の注意事項**:
+- 初回提出時は、審査に**1週間以上**かかる場合があります
+- 審査が却下された場合、理由を確認して修正後、再提出が必要です
+- 審査基準は厳格で、ガイドラインに準拠している必要があります
+
 ## ビルド前のチェックリスト
 
+### アプリ設定
 - [ ] **`app.json`の設定が正しいか確認**（`name`、`slug`、`bundleIdentifier`、`package`）
 - [ ] **`eas build:configure`を実行する前に`app.json`を修正したか**
 - [ ] バージョン番号を更新したか確認
@@ -320,7 +474,22 @@ eas submit --platform ios
 - [ ] TypeScriptの型エラーがないか確認（`npx tsc --noEmit`）
 - [ ] テストが正常に動作するか確認
 - [ ] アイコンとスプラッシュスクリーンが設定されているか確認
-- [ ] プライバシーポリシーと利用規約が準備されているか確認（アプリストア提出時）
+
+### アプリストア登録（初回のみ）
+- [ ] **Google Play Consoleアカウントの登録**（$25の一度限りの登録料を支払い済み）
+- [ ] **Apple Developer Programへの登録**（年間$99の登録料を支払い、審査完了済み）
+  - [ ] 組織登録の場合は、D-U-N-S番号を取得済み
+
+### アプリストア提出準備
+- [ ] プライバシーポリシーがWeb上で公開されている（URLが必要）
+- [ ] 利用規約が準備されている（推奨）
+- [ ] アプリアイコンが準備されている
+  - [ ] Android: 512x512px（PNG形式）
+  - [ ] iOS: 1024x1024px（PNG形式、透明度なし）
+- [ ] スクリーンショットが準備されている（最低2枚、推奨5-8枚）
+- [ ] アプリ説明文が準備されている（日本語・英語など）
+- [ ] サポートURLが準備されている（iOS必須）
+- [ ] Appプライバシー情報が準備されている（iOS必須）
 
 ## トラブルシューティング
 
@@ -343,9 +512,21 @@ eas submit --platform ios
 
 ## 参考リンク
 
+### Expo関連
 - [EAS Build公式ドキュメント](https://docs.expo.dev/build/introduction/)
 - [EAS Submit公式ドキュメント](https://docs.expo.dev/submit/introduction/)
 - [Expo Dashboard](https://expo.dev/)
+
+### Google Play Store
+- [Google Play Console](https://play.google.com/console/)
+- [Google Play Console ヘルプ](https://support.google.com/googleplay/android-developer)
+- [Google Play デベロッパー ポリシー](https://play.google.com/about/developer-content-policy/)
+
+### Apple App Store
+- [Apple Developer Program](https://developer.apple.com/programs/)
+- [App Store Connect](https://appstoreconnect.apple.com/)
+- [App Store レビューガイドライン](https://developer.apple.com/app-store/review/guidelines/)
+- [D-U-N-S番号の取得](https://www.dnb.com/duns-number.html)（組織登録の場合）
 
 ---
 

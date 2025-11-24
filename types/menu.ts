@@ -234,3 +234,23 @@ export interface SelectionResponse {
   /** 次の段階が必要かどうか（オプション） */
   requires_next_stage?: boolean;
 }
+
+/**
+ * 不足食材チェックリクエストの型定義
+ */
+export interface CheckMissingIngredientsRequest {
+  /** レシピに必要な食材リスト */
+  recipeIngredients: string[];
+  /** 使える食材リスト */
+  availableIngredients: string[];
+}
+
+/**
+ * 不足食材チェックレスポンスの型定義
+ */
+export interface CheckMissingIngredientsResponse {
+  /** 成功フラグ */
+  success: boolean;
+  /** 不足している食材リスト */
+  missingIngredients: string[];
+}

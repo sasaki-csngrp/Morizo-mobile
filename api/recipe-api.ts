@@ -1,4 +1,4 @@
-import { RecipeAdoptionRequest, RecipeAdoptionItem, SelectionRequest, SelectionResponse } from '../types/menu';
+import { RecipeAdoptionRequest, RecipeAdoptionItem, SelectionRequest, SelectionResponse, CheckMissingIngredientsRequest, CheckMissingIngredientsResponse } from '../types/menu';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiUrl } from '../lib/api-config';
@@ -183,6 +183,38 @@ export async function clearAdoptedRecipes(): Promise<void> {
     await AsyncStorage.removeItem(ADOPTED_RECIPES_KEY);
   } catch (error) {
     console.error('AsyncStorageのクリアに失敗:', error);
+  }
+}
+
+// 不足食材チェックAPI呼び出し
+export async function checkMissingIngredients(
+  recipeIngredients: string[],
+  availableIngredients: string[]
+): Promise<string[]> {
+  const apiUrl = `${getApiUrl()}/recipe/ingredients/check-missing`;
+  
+  try {
+    const response = await authenticatedFetch(apiUrl, {
+      method: 'POST',
+      body: JSON.stringify({
+        recipeIngredients,
+        availableIngredients,
+      } as CheckMissingIngredientsRequest)
+    });
+
+    if (!response.ok) {
+      console.error('不足食材チェックに失敗しました:', response.status);
+      return [];
+    }
+
+    const result: CheckMissingIngredientsResponse = await response.json();
+    if (result.success) {
+      return result.missingIngredients || [];
+    }
+    return [];
+  } catch (error) {
+    console.error('不足食材チェックエラー:', error);
+    return [];
   }
 }
 

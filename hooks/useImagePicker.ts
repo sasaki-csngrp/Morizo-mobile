@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { validateImage } from '../lib/utils/image-validation';
+import { CONVERTIBLE_IMAGE_EXTENSIONS } from '../lib/utils/ocr-constants';
 
 /**
  * 画像選択とバリデーションを管理するカスタムフック
@@ -10,6 +12,42 @@ import { validateImage } from '../lib/utils/image-validation';
  */
 export function useImagePicker() {
   const [imageUri, setImageUri] = useState<string | null>(null);
+
+  /**
+   * HEIC形式の画像をJPEGに変換する
+   * @param uri 画像のURI
+   * @returns 変換後のURI（変換不要の場合は元のURI）
+   */
+  const convertHeicToJpeg = async (uri: string): Promise<string> => {
+    try {
+      const uriLower = uri.toLowerCase();
+      const isHeicFormat = CONVERTIBLE_IMAGE_EXTENSIONS.some(ext => uriLower.endsWith(ext));
+      
+      if (!isHeicFormat) {
+        // HEIC形式でない場合はそのまま返す
+        return uri;
+      }
+
+      console.log('[useImagePicker] HEIC形式を検出、JPEGに変換します:', uri);
+      
+      // HEIC形式をJPEGに変換
+      const manipulatedImage = await ImageManipulator.manipulateAsync(
+        uri,
+        [], // リサイズなし
+        {
+          compress: 0.8,
+          format: ImageManipulator.SaveFormat.JPEG,
+        }
+      );
+
+      console.log('[useImagePicker] 変換完了:', manipulatedImage.uri);
+      return manipulatedImage.uri;
+    } catch (error) {
+      console.error('[useImagePicker] HEIC変換エラー:', error);
+      // 変換に失敗した場合は元のURIを返す（エラーは後続の検証で検出される）
+      throw new Error('HEIC形式の画像をJPEGに変換できませんでした');
+    }
+  };
 
   /**
    * 画像を選択する
@@ -31,15 +69,25 @@ export function useImagePicker() {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const selectedImage = result.assets[0];
+        let finalUri = selectedImage.uri;
         
-        // ファイル形式とサイズの検証
-        const validation = validateImage(selectedImage.uri, selectedImage.fileSize);
+        // HEIC形式の場合はJPEGに変換
+        try {
+          finalUri = await convertHeicToJpeg(selectedImage.uri);
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : '画像の変換に失敗しました';
+          Alert.alert('エラー', errorMessage);
+          return;
+        }
+        
+        // ファイル形式とサイズの検証（変換後のURIで検証）
+        const validation = validateImage(finalUri, selectedImage.fileSize);
         if (!validation.isValid) {
           Alert.alert('エラー', validation.errors[0]);
           return;
         }
 
-        setImageUri(selectedImage.uri);
+        setImageUri(finalUri);
       }
     } catch (error) {
       console.error('Image selection failed:', error);
@@ -68,15 +116,25 @@ export function useImagePicker() {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const capturedImage = result.assets[0];
+        let finalUri = capturedImage.uri;
         
-        // ファイル形式とサイズの検証
-        const validation = validateImage(capturedImage.uri, capturedImage.fileSize);
+        // HEIC形式の場合はJPEGに変換
+        try {
+          finalUri = await convertHeicToJpeg(capturedImage.uri);
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : '画像の変換に失敗しました';
+          Alert.alert('エラー', errorMessage);
+          return;
+        }
+        
+        // ファイル形式とサイズの検証（変換後のURIで検証）
+        const validation = validateImage(finalUri, capturedImage.fileSize);
         if (!validation.isValid) {
           Alert.alert('エラー', validation.errors[0]);
           return;
         }
 
-        setImageUri(capturedImage.uri);
+        setImageUri(finalUri);
       }
     } catch (error) {
       console.error('Camera capture failed:', error);

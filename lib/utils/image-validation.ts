@@ -1,4 +1,4 @@
-import { VALID_IMAGE_EXTENSIONS, MAX_FILE_SIZE } from './ocr-constants';
+import { VALID_IMAGE_EXTENSIONS, CONVERTIBLE_IMAGE_EXTENSIONS, MAX_FILE_SIZE } from './ocr-constants';
 
 /**
  * 画像ファイルの形式を検証する
@@ -7,7 +7,9 @@ import { VALID_IMAGE_EXTENSIONS, MAX_FILE_SIZE } from './ocr-constants';
  */
 export function validateImageFormat(uri: string): boolean {
   const fileName = uri.toLowerCase();
-  return VALID_IMAGE_EXTENSIONS.some(ext => fileName.endsWith(ext));
+  // 直接使用可能な形式または変換可能な形式を許可
+  return VALID_IMAGE_EXTENSIONS.some(ext => fileName.endsWith(ext)) ||
+         CONVERTIBLE_IMAGE_EXTENSIONS.some(ext => fileName.endsWith(ext));
 }
 
 /**
@@ -36,7 +38,7 @@ export function validateImage(uri: string, fileSize?: number): {
   const errors: string[] = [];
 
   if (!validateImageFormat(uri)) {
-    errors.push('JPEGまたはPNGファイルのみアップロード可能です');
+    errors.push('JPEG、PNG、またはHEICファイルのみアップロード可能です（HEIC形式は自動的にJPEGに変換されます）');
   }
 
   if (!validateImageSize(fileSize)) {

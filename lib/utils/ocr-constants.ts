@@ -11,8 +11,11 @@ export const STORAGE_LOCATIONS = ['冷蔵庫', '冷凍庫', '常温倉庫', '野
 // 最大ファイルサイズ（バイト単位、10MB）
 export const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-// 有効な画像拡張子
+// 有効な画像拡張子（変換可能な形式を含む）
 export const VALID_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png'] as const;
+
+// 変換可能な画像拡張子（HEIC形式など）
+export const CONVERTIBLE_IMAGE_EXTENSIONS = ['.heic', '.heif'] as const;
 
 // 型定義
 export type Unit = typeof UNITS[number];

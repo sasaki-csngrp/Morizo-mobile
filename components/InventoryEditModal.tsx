@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Modal, TextInput, StyleSheet, Alert, ActivityIndicator } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 import { addInventoryItem, updateInventoryItem, InventoryItem, InventoryItemData } from '../api/inventory-api';
+import SelectionModal, { SelectionOption } from './SelectionModal';
 
 interface InventoryEditModalProps {
   isOpen: boolean;
@@ -22,6 +22,8 @@ const InventoryEditModal: React.FC<InventoryEditModalProps> = ({
   const [storageLocation, setStorageLocation] = useState('冷蔵庫');
   const [expiryDate, setExpiryDate] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isUnitModalOpen, setIsUnitModalOpen] = useState(false);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
 
   useEffect(() => {
     if (item) {
@@ -85,6 +87,9 @@ const InventoryEditModal: React.FC<InventoryEditModalProps> = ({
 
   const units = ['個', 'kg', 'g', 'L', 'ml', '本', 'パック', '袋'];
   const storageLocations = ['冷蔵庫', '冷凍庫', '常温倉庫', '野菜室', 'その他'];
+  
+  const unitOptions: SelectionOption[] = units.map(u => ({ label: u, value: u }));
+  const locationOptions: SelectionOption[] = storageLocations.map(loc => ({ label: loc, value: loc }));
 
   return (
     <Modal
@@ -141,29 +146,27 @@ const InventoryEditModal: React.FC<InventoryEditModalProps> = ({
               <Text style={styles.label}>
                 単位 <Text style={styles.required}>*</Text>
               </Text>
-              <Picker
-                selectedValue={unit}
-                onValueChange={(value) => setUnit(value)}
-                style={styles.picker}
+              <TouchableOpacity
+                style={styles.selectButton}
+                onPress={() => setIsUnitModalOpen(true)}
+                activeOpacity={0.7}
               >
-                {units.map(u => (
-                  <Picker.Item key={u} label={u} value={u} />
-                ))}
-              </Picker>
+                <Text style={styles.selectButtonText}>{unit}</Text>
+                <Text style={styles.selectButtonArrow}>▼</Text>
+              </TouchableOpacity>
             </View>
 
             {/* 保管場所 */}
             <View style={styles.formGroup}>
               <Text style={styles.label}>保管場所</Text>
-              <Picker
-                selectedValue={storageLocation}
-                onValueChange={(value) => setStorageLocation(value)}
-                style={styles.picker}
+              <TouchableOpacity
+                style={styles.selectButton}
+                onPress={() => setIsLocationModalOpen(true)}
+                activeOpacity={0.7}
               >
-                {storageLocations.map(loc => (
-                  <Picker.Item key={loc} label={loc} value={loc} />
-                ))}
-              </Picker>
+                <Text style={styles.selectButtonText}>{storageLocation}</Text>
+                <Text style={styles.selectButtonArrow}>▼</Text>
+              </TouchableOpacity>
             </View>
 
             {/* 賞味期限 */}
@@ -201,6 +204,26 @@ const InventoryEditModal: React.FC<InventoryEditModalProps> = ({
           </View>
         </View>
       </View>
+      
+      {/* 単位選択モーダル */}
+      <SelectionModal
+        isOpen={isUnitModalOpen}
+        onClose={() => setIsUnitModalOpen(false)}
+        onSelect={(value) => setUnit(value)}
+        options={unitOptions}
+        selectedValue={unit}
+        title="単位を選択"
+      />
+      
+      {/* 保管場所選択モーダル */}
+      <SelectionModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+        onSelect={(value) => setStorageLocation(value)}
+        options={locationOptions}
+        selectedValue={storageLocation}
+        title="保管場所を選択"
+      />
     </Modal>
   );
 };
@@ -260,9 +283,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1f2937',
   },
-  picker: {
-    height: 50,
+  selectButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     backgroundColor: '#ffffff',
+  },
+  selectButtonText: {
+    fontSize: 14,
+    color: '#1f2937',
+  },
+  selectButtonArrow: {
+    fontSize: 12,
+    color: '#6b7280',
   },
   buttonRow: {
     flexDirection: 'row',

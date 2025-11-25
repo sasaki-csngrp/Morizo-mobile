@@ -1,8 +1,8 @@
-import React from 'react';
-import { View, Text, FlatList, TextInput, Switch, StyleSheet } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import React, { useState } from 'react';
+import { View, Text, FlatList, TextInput, Switch, StyleSheet, TouchableOpacity } from 'react-native';
 import { OCRItem } from '../../api/inventory-api';
 import { UNITS, STORAGE_LOCATIONS } from '../../lib/utils/ocr-constants';
+import SelectionModal, { SelectionOption } from '../SelectionModal';
 
 interface EditableItemListProps {
   items: OCRItem[];
@@ -37,6 +37,10 @@ const EditableItemList: React.FC<EditableItemListProps> = ({
   storageLocations = STORAGE_LOCATIONS,
 }) => {
   const allSelected = selectedItems.size === items.length && items.length > 0;
+  const [openModal, setOpenModal] = useState<{ type: 'unit' | 'location'; index: number } | null>(null);
+  
+  const unitOptions: SelectionOption[] = units.map(u => ({ label: u, value: u }));
+  const locationOptions: SelectionOption[] = storageLocations.map(loc => ({ label: loc, value: loc }));
 
   return (
     <View style={styles.section}>
@@ -94,28 +98,30 @@ const EditableItemList: React.FC<EditableItemListProps> = ({
 
             {/* 単位 */}
             <View style={styles.unitCell}>
-              <Picker
-                selectedValue={item.unit}
-                onValueChange={(value) => onItemEdit(index, 'unit', value)}
-                style={styles.itemPicker}
+              <TouchableOpacity
+                style={styles.selectButton}
+                onPress={() => setOpenModal({ type: 'unit', index })}
+                activeOpacity={0.7}
               >
-                {units.map(u => (
-                  <Picker.Item key={u} label={u} value={u} />
-                ))}
-              </Picker>
+                <Text style={styles.selectButtonText} numberOfLines={1}>
+                  {item.unit}
+                </Text>
+                <Text style={styles.selectButtonArrow}>▼</Text>
+              </TouchableOpacity>
             </View>
 
             {/* 保管場所 */}
             <View style={styles.locationCell}>
-              <Picker
-                selectedValue={item.storage_location || '冷蔵庫'}
-                onValueChange={(value) => onItemEdit(index, 'storage_location', value)}
-                style={styles.itemPicker}
+              <TouchableOpacity
+                style={styles.selectButton}
+                onPress={() => setOpenModal({ type: 'location', index })}
+                activeOpacity={0.7}
               >
-                {storageLocations.map(loc => (
-                  <Picker.Item key={loc} label={loc} value={loc} />
-                ))}
-              </Picker>
+                <Text style={styles.selectButtonText} numberOfLines={1}>
+                  {item.storage_location || '冷蔵庫'}
+                </Text>
+                <Text style={styles.selectButtonArrow}>▼</Text>
+              </TouchableOpacity>
             </View>
 
             {/* 消費期限 */}
@@ -141,6 +147,29 @@ const EditableItemList: React.FC<EditableItemListProps> = ({
           </View>
         )}
       />
+      
+      {/* 選択モーダル */}
+      {openModal && (
+        <SelectionModal
+          isOpen={true}
+          onClose={() => setOpenModal(null)}
+          onSelect={(value) => {
+            if (openModal.type === 'unit') {
+              onItemEdit(openModal.index, 'unit', value);
+            } else {
+              onItemEdit(openModal.index, 'storage_location', value);
+            }
+            setOpenModal(null);
+          }}
+          options={openModal.type === 'unit' ? unitOptions : locationOptions}
+          selectedValue={
+            openModal.type === 'unit'
+              ? items[openModal.index]?.unit
+              : items[openModal.index]?.storage_location || '冷蔵庫'
+          }
+          title={openModal.type === 'unit' ? '単位を選択' : '保管場所を選択'}
+        />
+      )}
     </View>
   );
 };
@@ -223,9 +252,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#1f2937',
   },
-  itemPicker: {
-    height: 40,
+  selectButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
     backgroundColor: '#ffffff',
+    minHeight: 40,
+  },
+  selectButtonText: {
+    fontSize: 12,
+    color: '#1f2937',
+    flex: 1,
+  },
+  selectButtonArrow: {
+    fontSize: 10,
+    color: '#6b7280',
+    marginLeft: 4,
   },
 });
 

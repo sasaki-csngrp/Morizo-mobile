@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet, Modal, TextInput, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { getInventoryList, deleteInventoryItem, InventoryItem } from '../api/inventory-api';
-import { Picker } from '@react-native-picker/picker';
 import InventoryEditModal from './InventoryEditModal';
 import InventoryCSVUploadModal from './InventoryCSVUploadModal';
 import InventoryOCRModal from './InventoryOCRModal';
+import SelectionModal, { SelectionOption } from './SelectionModal';
 
 interface InventoryPanelProps {
   isOpen: boolean;
@@ -25,6 +25,9 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
   const [isCSVUploadModalOpen, setIsCSVUploadModalOpen] = useState(false);
   const [isOCRModalOpen, setIsOCRModalOpen] = useState(false);
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
+  const [isLocationFilterModalOpen, setIsLocationFilterModalOpen] = useState(false);
+  const [isSortByModalOpen, setIsSortByModalOpen] = useState(false);
+  const [isSortOrderModalOpen, setIsSortOrderModalOpen] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -71,6 +74,23 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
   const storageLocations = Array.from(new Set(
     inventory.map(item => item.storage_location).filter(Boolean) as string[]
   ));
+  
+  // 選択モーダル用のオプション
+  const locationFilterOptions: SelectionOption[] = [
+    { label: '全て', value: '' },
+    ...storageLocations.map(loc => ({ label: loc, value: loc }))
+  ];
+  const sortByOptions: SelectionOption[] = [
+    { label: '登録日', value: 'created_at' },
+    { label: 'アイテム名', value: 'item_name' },
+    { label: '数量', value: 'quantity' },
+    { label: '保管場所', value: 'storage_location' },
+    { label: '消費期限', value: 'expiry_date' },
+  ];
+  const sortOrderOptions: SelectionOption[] = [
+    { label: '降順', value: 'desc' },
+    { label: '昇順', value: 'asc' },
+  ];
 
   const handleAddNew = () => {
     setEditingItem(null);
@@ -162,16 +182,16 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
               {/* 保管場所フィルター */}
               <View style={styles.filterGroup}>
                 <Text style={styles.filterLabel}>保管場所</Text>
-                <Picker
-                  selectedValue={storageLocationFilter}
-                  onValueChange={(value) => setStorageLocationFilter(value)}
-                  style={styles.picker}
+                <TouchableOpacity
+                  style={styles.selectButton}
+                  onPress={() => setIsLocationFilterModalOpen(true)}
+                  activeOpacity={0.7}
                 >
-                  <Picker.Item label="全て" value="" />
-                  {storageLocations.map(location => (
-                    <Picker.Item key={location} label={location} value={location} />
-                  ))}
-                </Picker>
+                  <Text style={styles.selectButtonText}>
+                    {storageLocationFilter || '全て'}
+                  </Text>
+                  <Text style={styles.selectButtonArrow}>▼</Text>
+                </TouchableOpacity>
               </View>
               
               {/* 検索フィルター */}
@@ -190,29 +210,30 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
               <View style={styles.sortGroup}>
                 <View style={styles.sortItem}>
                   <Text style={styles.filterLabel}>並び順</Text>
-                  <Picker
-                    selectedValue={sortBy}
-                    onValueChange={(value) => setSortBy(value)}
-                    style={styles.picker}
+                  <TouchableOpacity
+                    style={styles.selectButton}
+                    onPress={() => setIsSortByModalOpen(true)}
+                    activeOpacity={0.7}
                   >
-                    <Picker.Item label="登録日" value="created_at" />
-                    <Picker.Item label="アイテム名" value="item_name" />
-                    <Picker.Item label="数量" value="quantity" />
-                    <Picker.Item label="保管場所" value="storage_location" />
-                    <Picker.Item label="消費期限" value="expiry_date" />
-                  </Picker>
+                    <Text style={styles.selectButtonText}>
+                      {sortByOptions.find(opt => opt.value === sortBy)?.label || sortBy}
+                    </Text>
+                    <Text style={styles.selectButtonArrow}>▼</Text>
+                  </TouchableOpacity>
                 </View>
                 
                 <View style={styles.sortItem}>
                   <Text style={styles.filterLabel}>順序</Text>
-                  <Picker
-                    selectedValue={sortOrder}
-                    onValueChange={(value) => setSortOrder(value)}
-                    style={styles.picker}
+                  <TouchableOpacity
+                    style={styles.selectButton}
+                    onPress={() => setIsSortOrderModalOpen(true)}
+                    activeOpacity={0.7}
                   >
-                    <Picker.Item label="降順" value="desc" />
-                    <Picker.Item label="昇順" value="asc" />
-                  </Picker>
+                    <Text style={styles.selectButtonText}>
+                      {sortOrderOptions.find(opt => opt.value === sortOrder)?.label || sortOrder}
+                    </Text>
+                    <Text style={styles.selectButtonArrow}>▼</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             </View>
@@ -333,6 +354,36 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
           onClose={() => setIsOCRModalOpen(false)}
           onUploadComplete={loadInventory}
         />
+        
+        {/* 保管場所フィルター選択モーダル */}
+        <SelectionModal
+          isOpen={isLocationFilterModalOpen}
+          onClose={() => setIsLocationFilterModalOpen(false)}
+          onSelect={(value) => setStorageLocationFilter(value)}
+          options={locationFilterOptions}
+          selectedValue={storageLocationFilter}
+          title="保管場所を選択"
+        />
+        
+        {/* 並び順選択モーダル */}
+        <SelectionModal
+          isOpen={isSortByModalOpen}
+          onClose={() => setIsSortByModalOpen(false)}
+          onSelect={(value) => setSortBy(value)}
+          options={sortByOptions}
+          selectedValue={sortBy}
+          title="並び順を選択"
+        />
+        
+        {/* 順序選択モーダル */}
+        <SelectionModal
+          isOpen={isSortOrderModalOpen}
+          onClose={() => setIsSortOrderModalOpen(false)}
+          onSelect={(value) => setSortOrder(value)}
+          options={sortOrderOptions}
+          selectedValue={sortOrder}
+          title="順序を選択"
+        />
       </View>
     </Modal>
   );
@@ -400,9 +451,24 @@ const styles = StyleSheet.create({
     color: '#4b5563',
     marginBottom: 8,
   },
-  picker: {
-    height: 50,
-    backgroundColor: '#f9fafb',
+  selectButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#ffffff',
+  },
+  selectButtonText: {
+    fontSize: 14,
+    color: '#1f2937',
+  },
+  selectButtonArrow: {
+    fontSize: 12,
+    color: '#6b7280',
   },
   searchInput: {
     borderWidth: 1,

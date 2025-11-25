@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, FlatList, TextInput, Switch, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, FlatList, TextInput, Switch, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { OCRItem } from '../../api/inventory-api';
 import { UNITS, STORAGE_LOCATIONS } from '../../lib/utils/ocr-constants';
 import SelectionModal, { SelectionOption } from '../SelectionModal';
@@ -38,25 +38,27 @@ const EditableItemList: React.FC<EditableItemListProps> = ({
 }) => {
   const allSelected = selectedItems.size === items.length && items.length > 0;
   const [openModal, setOpenModal] = useState<{ type: 'unit' | 'location'; index: number } | null>(null);
+  const quantityInputRefs = useRef<Record<number, TextInput | null>>({});
   
   const unitOptions: SelectionOption[] = units.map(u => ({ label: u, value: u }));
   const locationOptions: SelectionOption[] = storageLocations.map(loc => ({ label: loc, value: loc }));
 
   return (
-    <View style={styles.section}>
-      <Text style={styles.label}>抽出されたアイテム（編集・選択可能）</Text>
-      
-      {/* 全選択/全解除 */}
-      <View style={styles.selectAllRow}>
-        <Text style={styles.selectAllLabel}>全選択</Text>
-        <Switch
-          value={allSelected}
-          onValueChange={onSelectAll}
-        />
-      </View>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <View style={styles.section}>
+        <Text style={styles.label}>抽出されたアイテム（編集・選択可能）</Text>
+        
+        {/* 全選択/全解除 */}
+        <View style={styles.selectAllRow}>
+          <Text style={styles.selectAllLabel}>全選択</Text>
+          <Switch
+            value={allSelected}
+            onValueChange={onSelectAll}
+          />
+        </View>
 
-      {/* アイテムリスト */}
-      <FlatList
+        {/* アイテムリスト */}
+        <FlatList
         data={items}
         keyExtractor={(_, index) => `item-${index}`}
         scrollEnabled={false}
@@ -83,17 +85,31 @@ const EditableItemList: React.FC<EditableItemListProps> = ({
 
             {/* 数量 */}
             <View style={styles.quantityCell}>
-              <TextInput
-                style={styles.itemInput}
-                value={item.quantity.toString()}
-                onChangeText={(value) => {
-                  const num = parseFloat(value);
-                  onItemEdit(index, 'quantity', isNaN(num) ? 0 : num);
-                }}
-                keyboardType="numeric"
-                placeholder="0"
-                placeholderTextColor="#999"
-              />
+              <View style={styles.quantityInputContainer}>
+                <TextInput
+                  ref={(ref) => {
+                    quantityInputRefs.current[index] = ref;
+                  }}
+                  style={styles.quantityInput}
+                  value={item.quantity.toString()}
+                  onChangeText={(value) => {
+                    const num = parseFloat(value);
+                    onItemEdit(index, 'quantity', isNaN(num) ? 0 : num);
+                  }}
+                  keyboardType="decimal-pad"
+                  placeholder="0"
+                  placeholderTextColor="#999"
+                />
+                <TouchableOpacity
+                  style={styles.doneButtonSmall}
+                  onPress={() => {
+                    quantityInputRefs.current[index]?.blur();
+                    Keyboard.dismiss();
+                  }}
+                >
+                  <Text style={styles.doneButtonTextSmall}>✓</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* 単位 */}
@@ -170,7 +186,8 @@ const EditableItemList: React.FC<EditableItemListProps> = ({
           title={openModal.type === 'unit' ? '単位を選択' : '保管場所を選択'}
         />
       )}
-    </View>
+      </View>
+    </TouchableWithoutFeedback>
   );
 };
 
@@ -251,6 +268,35 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     fontSize: 12,
     color: '#1f2937',
+  },
+  quantityInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  quantityInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    backgroundColor: '#ffffff',
+    fontSize: 12,
+    color: '#1f2937',
+  },
+  doneButtonSmall: {
+    backgroundColor: '#2563eb',
+    width: 28,
+    height: 28,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  doneButtonTextSmall: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   selectButton: {
     flexDirection: 'row',

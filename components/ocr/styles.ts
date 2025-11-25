@@ -6,6 +6,9 @@ import { StyleSheet } from 'react-native';
  * 責任: InventoryOCRModalとその関連コンポーネントのスタイル定義を集約
  */
 export const styles = StyleSheet.create({
+  keyboardAvoidingView: {
+    flex: 1,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

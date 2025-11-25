@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, Modal, Alert, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, Alert, ScrollView, KeyboardAvoidingView, Platform, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { OCRItem } from '../api/inventory-api';
 import { UNITS, STORAGE_LOCATIONS } from '../lib/utils/ocr-constants';
 import { useImagePicker } from '../hooks/useImagePicker';
@@ -128,17 +128,28 @@ const InventoryOCRModal: React.FC<InventoryOCRModalProps> = ({
       transparent={true}
       onRequestClose={handleClose}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          {/* ヘッダー */}
-          <View style={styles.header}>
-            <Text style={styles.title}>レシートOCR</Text>
-            <TouchableOpacity onPress={handleClose}>
-              <Text style={styles.closeButton}>✕</Text>
-            </TouchableOpacity>
-          </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoidingView}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={() => {}}>
+              <View style={styles.modalContent}>
+                {/* ヘッダー */}
+                <View style={styles.header}>
+                  <Text style={styles.title}>レシートOCR</Text>
+                  <TouchableOpacity onPress={handleClose}>
+                    <Text style={styles.closeButton}>✕</Text>
+                  </TouchableOpacity>
+                </View>
 
-          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+                <ScrollView
+                  style={styles.scrollView}
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                >
             {/* ステップ1: 画像選択とOCR解析 */}
             {!ocrResult && (
               <>
@@ -185,19 +196,22 @@ const InventoryOCRModal: React.FC<InventoryOCRModalProps> = ({
                 />
               </>
             )}
-          </ScrollView>
+                </ScrollView>
 
-          {/* 閉じるボタン */}
-          <View style={styles.footer}>
-            <TouchableOpacity
-              onPress={handleClose}
-              style={styles.closeButtonStyle}
-            >
-              <Text style={styles.closeButtonText}>閉じる</Text>
-            </TouchableOpacity>
+                {/* 閉じるボタン */}
+                <View style={styles.footer}>
+                  <TouchableOpacity
+                    onPress={handleClose}
+                    style={styles.closeButtonStyle}
+                  >
+                    <Text style={styles.closeButtonText}>閉じる</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
           </View>
-        </View>
-      </View>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };

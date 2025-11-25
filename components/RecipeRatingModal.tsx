@@ -11,6 +11,10 @@ import {
   Image,
   Linking,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { updateRecipeRating } from '../api/menu-api';
 
@@ -91,26 +95,34 @@ const RecipeRatingModal: React.FC<RecipeRatingModalProps> = ({
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
-        <View style={styles.modalContainer}>
-          {/* ヘッダー */}
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>レシピの評価を選択してください</Text>
-            <TouchableOpacity
-              onPress={onClose}
-              disabled={isSaving}
-              style={styles.closeButton}
-            >
-              <Text style={styles.closeButtonText}>✕</Text>
-            </TouchableOpacity>
-          </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoidingView}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.overlay}>
+            <TouchableWithoutFeedback onPress={() => {}}>
+              <View style={styles.modalContainer}>
+                {/* ヘッダー */}
+                <View style={styles.header}>
+                  <Text style={styles.headerTitle}>レシピの評価を選択してください</Text>
+                  <TouchableOpacity
+                    onPress={onClose}
+                    disabled={isSaving}
+                    style={styles.closeButton}
+                  >
+                    <Text style={styles.closeButtonText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
 
-          {/* コンテンツ */}
-          <ScrollView 
-            style={styles.content} 
-            contentContainerStyle={styles.contentContainer}
-            showsVerticalScrollIndicator={true}
-          >
+                {/* コンテンツ */}
+                <ScrollView 
+                  style={styles.content} 
+                  contentContainerStyle={styles.contentContainer}
+                  showsVerticalScrollIndicator={true}
+                  keyboardShouldPersistTaps="handled"
+                >
             {error && (
               <View style={styles.errorContainer}>
                 <Text style={styles.errorText}>⚠️ {error}</Text>
@@ -230,13 +242,19 @@ const RecipeRatingModal: React.FC<RecipeRatingModalProps> = ({
               )}
             </TouchableOpacity>
           </View>
-        </View>
-      </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  keyboardAvoidingView: {
+    flex: 1,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -248,8 +266,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     width: '90%',
     maxWidth: 500,
-    height: '85%',
-    minHeight: 600,
+    maxHeight: '85%',
+    minHeight: 400,
     overflow: 'hidden',
   },
   header: {

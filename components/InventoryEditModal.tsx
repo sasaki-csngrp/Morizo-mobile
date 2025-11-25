@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Modal, TextInput, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, Modal, TextInput, StyleSheet, Alert, ActivityIndicator, TouchableWithoutFeedback, Keyboard, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { addInventoryItem, updateInventoryItem, InventoryItem, InventoryItemData } from '../api/inventory-api';
 import SelectionModal, { SelectionOption } from './SelectionModal';
 
@@ -24,6 +24,7 @@ const InventoryEditModal: React.FC<InventoryEditModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isUnitModalOpen, setIsUnitModalOpen] = useState(false);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const quantityInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     if (item) {
@@ -98,20 +99,32 @@ const InventoryEditModal: React.FC<InventoryEditModalProps> = ({
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          {/* ヘッダー */}
-          <View style={styles.header}>
-            <Text style={styles.title}>
-              {item ? '在庫編集' : '新規追加'}
-            </Text>
-            <TouchableOpacity onPress={onClose}>
-              <Text style={styles.closeButton}>✕</Text>
-            </TouchableOpacity>
-          </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoidingView}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={() => {}}>
+              <View style={styles.modalContent}>
+                {/* ヘッダー */}
+                <View style={styles.header}>
+                  <Text style={styles.title}>
+                    {item ? '在庫編集' : '新規追加'}
+                  </Text>
+                  <TouchableOpacity onPress={onClose}>
+                    <Text style={styles.closeButton}>✕</Text>
+                  </TouchableOpacity>
+                </View>
 
-          {/* フォーム */}
-          <View style={styles.form}>
+                {/* フォーム */}
+                <ScrollView
+                  style={styles.scrollView}
+                  contentContainerStyle={styles.scrollViewContent}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  <View style={styles.form}>
             {/* アイテム名 */}
             <View style={styles.formGroup}>
               <Text style={styles.label}>
@@ -131,14 +144,26 @@ const InventoryEditModal: React.FC<InventoryEditModalProps> = ({
               <Text style={styles.label}>
                 数量 <Text style={styles.required}>*</Text>
               </Text>
-              <TextInput
-                style={styles.textInput}
-                value={quantity}
-                onChangeText={setQuantity}
-                keyboardType="numeric"
-                placeholder="0"
-                placeholderTextColor="#999"
-              />
+              <View style={styles.quantityInputContainer}>
+                <TextInput
+                  ref={quantityInputRef}
+                  style={styles.quantityInput}
+                  value={quantity}
+                  onChangeText={setQuantity}
+                  keyboardType="decimal-pad"
+                  placeholder="0"
+                  placeholderTextColor="#999"
+                />
+                <TouchableOpacity
+                  style={styles.doneButton}
+                  onPress={() => {
+                    quantityInputRef.current?.blur();
+                    Keyboard.dismiss();
+                  }}
+                >
+                  <Text style={styles.doneButtonText}>完了</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* 単位 */}
@@ -180,30 +205,34 @@ const InventoryEditModal: React.FC<InventoryEditModalProps> = ({
                 placeholderTextColor="#999"
               />
             </View>
-          </View>
+                  </View>
+                </ScrollView>
 
-          {/* ボタン */}
-          <View style={styles.buttonRow}>
-            <TouchableOpacity
-              onPress={onClose}
-              style={[styles.button, styles.cancelButton]}
-            >
-              <Text style={styles.cancelButtonText}>キャンセル</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleSave}
-              disabled={isSaving}
-              style={[styles.button, styles.saveButton, isSaving && styles.saveButtonDisabled]}
-            >
-              {isSaving ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <Text style={styles.saveButtonText}>保存</Text>
-              )}
-            </TouchableOpacity>
+                {/* ボタン */}
+                <View style={styles.buttonRow}>
+                  <TouchableOpacity
+                    onPress={onClose}
+                    style={[styles.button, styles.cancelButton]}
+                  >
+                    <Text style={styles.cancelButtonText}>キャンセル</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleSave}
+                    disabled={isSaving}
+                    style={[styles.button, styles.saveButton, isSaving && styles.saveButtonDisabled]}
+                  >
+                    {isSaving ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <Text style={styles.saveButtonText}>保存</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
           </View>
-        </View>
-      </View>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
       
       {/* 単位選択モーダル */}
       <SelectionModal
@@ -229,6 +258,9 @@ const InventoryEditModal: React.FC<InventoryEditModalProps> = ({
 };
 
 const styles = StyleSheet.create({
+  keyboardAvoidingView: {
+    flex: 1,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -241,7 +273,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     width: '100%',
     maxWidth: 400,
+    maxHeight: '90%',
     padding: 24,
+    minHeight: 400,
+  },
+  scrollView: {
+    maxHeight: 400,
+  },
+  scrollViewContent: {
+    flexGrow: 1,
   },
   header: {
     flexDirection: 'row',
@@ -282,6 +322,36 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     fontSize: 14,
     color: '#1f2937',
+  },
+  quantityInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  quantityInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#ffffff',
+    fontSize: 14,
+    color: '#1f2937',
+  },
+  doneButton: {
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    minWidth: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  doneButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   selectButton: {
     flexDirection: 'row',

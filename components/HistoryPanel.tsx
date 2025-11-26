@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet, Modal, Alert } from 'react-native';
 import { getMenuHistory, deleteRecipeHistory } from '../api/menu-api';
-import { Picker } from '@react-native-picker/picker';
 import IngredientDeleteModal from './IngredientDeleteModal';
 import RecipeRatingModal from './RecipeRatingModal';
+import SelectionModal, { SelectionOption } from './SelectionModal';
 
 interface HistoryRecipe {
   category: string | null;
@@ -37,6 +37,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, onClose }) => {
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<HistoryRecipe | null>(null);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -68,6 +69,18 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, onClose }) => {
     if (category === 'sub') return '🥗';
     if (category === 'soup') return '🍲';
     return '🍽️';
+  };
+
+  // カテゴリ選択モーダル用のオプション
+  const categoryOptions: SelectionOption[] = [
+    { label: '全て', value: '' },
+    { label: '主菜', value: 'main' },
+    { label: '副菜', value: 'sub' },
+    { label: '汁物', value: 'soup' },
+  ];
+
+  const getCategoryLabel = (value: string) => {
+    return categoryOptions.find(opt => opt.value === value)?.label || '全て';
   };
 
   const handleDeleteClick = (date: string) => {
@@ -174,16 +187,16 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, onClose }) => {
           {/* カテゴリフィルター */}
           <View style={styles.filterGroup}>
             <Text style={styles.filterLabel}>カテゴリ</Text>
-            <Picker
-              selectedValue={categoryFilter}
-              onValueChange={(value) => setCategoryFilter(value)}
-              style={styles.picker}
+            <TouchableOpacity
+              style={styles.selectButton}
+              onPress={() => setIsCategoryModalOpen(true)}
+              activeOpacity={0.7}
             >
-              <Picker.Item label="全て" value="" />
-              <Picker.Item label="主菜" value="main" />
-              <Picker.Item label="副菜" value="sub" />
-              <Picker.Item label="汁物" value="soup" />
-            </Picker>
+              <Text style={styles.selectButtonText}>
+                {getCategoryLabel(categoryFilter)}
+              </Text>
+              <Text style={styles.selectButtonArrow}>▼</Text>
+            </TouchableOpacity>
           </View>
         </View>
         
@@ -301,6 +314,16 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, onClose }) => {
         recipe={selectedRecipe}
         onSave={handleRatingSave}
       />
+
+      {/* カテゴリ選択モーダル */}
+      <SelectionModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        onSelect={(value) => setCategoryFilter(value)}
+        options={categoryOptions}
+        selectedValue={categoryFilter}
+        title="カテゴリを選択"
+      />
     </Modal>
   );
 };
@@ -360,8 +383,24 @@ const styles = StyleSheet.create({
   filterButtonTextActive: {
     color: '#ffffff',
   },
-  picker: {
-    height: 50,
+  selectButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#ffffff',
+  },
+  selectButtonText: {
+    fontSize: 14,
+    color: '#1f2937',
+  },
+  selectButtonArrow: {
+    fontSize: 12,
+    color: '#6b7280',
   },
   content: {
     flex: 1,

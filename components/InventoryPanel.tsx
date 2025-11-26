@@ -259,6 +259,7 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
                 <Text style={[styles.headerCell, styles.headerCellUnit]}>単位</Text>
                 <Text style={[styles.headerCell, styles.headerCellLocation]}>場所</Text>
                 <Text style={[styles.headerCell, styles.headerCellDate]}>賞味期限</Text>
+                <Text style={[styles.headerCell, styles.headerCellCreatedDate]}>登録日</Text>
               </View>
               
               {/* 在庫アイテム */}
@@ -276,7 +277,10 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
                     {item.storage_location || '-'}
                   </Text>
                   <Text style={[styles.cell, styles.cellDate]}>
-                    {formatDate(item.expiry_date)}
+                    {item.expiry_date ? formatDate(item.expiry_date) : ''}
+                  </Text>
+                  <Text style={[styles.cell, styles.cellCreatedDate]}>
+                    {formatDate(item.created_at)}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -500,6 +504,10 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'left',
   },
+  headerCellCreatedDate: {
+    flex: 1,
+    textAlign: 'left',
+  },
   inventoryRow: {
     flexDirection: 'row',
     paddingVertical: 12,
@@ -529,6 +537,10 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   cellDate: {
+    flex: 1,
+    color: '#6b7280',
+  },
+  cellCreatedDate: {
     flex: 1,
     color: '#6b7280',
   },

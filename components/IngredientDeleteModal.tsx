@@ -297,38 +297,24 @@ const IngredientDeleteModal: React.FC<IngredientDeleteModalProps> = ({
                         </Text>
                       </View>
                       <View style={styles.cellQuantity}>
-                        <View style={styles.quantityInputContainer}>
-                          <TextInput
-                            ref={(ref) => {
-                              quantityInputRefs.current[candidate.inventory_id] = ref;
-                            }}
-                            style={[
-                              styles.quantityInput,
-                              !isChecked && styles.quantityInputDisabled,
-                            ]}
-                            value={isChecked ? (quantityInputs[candidate.inventory_id] ?? newQuantity.toString()) : ''}
-                            onChangeText={(value) =>
-                              handleQuantityChange(candidate.inventory_id, value)
-                            }
-                            onBlur={() => handleQuantityBlur(candidate.inventory_id)}
-                            editable={isChecked && !isDeleting}
-                            keyboardType="decimal-pad"
-                            placeholder={isChecked ? '数量' : ''}
-                            placeholderTextColor="#999"
-                          />
-                          {isChecked && (
-                            <TouchableOpacity
-                              style={styles.doneButtonSmall}
-                              onPress={() => {
-                                quantityInputRefs.current[candidate.inventory_id]?.blur();
-                                Keyboard.dismiss();
-                              }}
-                              disabled={isDeleting}
-                            >
-                              <Text style={styles.doneButtonTextSmall}>✓</Text>
-                            </TouchableOpacity>
-                          )}
-                        </View>
+                        <TextInput
+                          ref={(ref) => {
+                            quantityInputRefs.current[candidate.inventory_id] = ref;
+                          }}
+                          style={[
+                            styles.quantityInput,
+                            !isChecked && styles.quantityInputDisabled,
+                          ]}
+                          value={isChecked ? (quantityInputs[candidate.inventory_id] ?? newQuantity.toString()) : ''}
+                          onChangeText={(value) =>
+                            handleQuantityChange(candidate.inventory_id, value)
+                          }
+                          onBlur={() => handleQuantityBlur(candidate.inventory_id)}
+                          editable={isChecked && !isDeleting}
+                          keyboardType="decimal-pad"
+                          placeholder={isChecked ? '数量' : ''}
+                          placeholderTextColor="#999"
+                        />
                       </View>
                     </View>
                   );
@@ -501,13 +487,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#4b5563',
   },
-  quantityInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
   quantityInput: {
-    flex: 1,
     fontSize: 14,
     padding: 8,
     borderWidth: 1,
@@ -519,19 +499,6 @@ const styles = StyleSheet.create({
   quantityInputDisabled: {
     backgroundColor: '#f3f4f6',
     color: '#9ca3af',
-  },
-  doneButtonSmall: {
-    backgroundColor: '#2563eb',
-    width: 28,
-    height: 28,
-    borderRadius: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  doneButtonTextSmall: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: 'bold',
   },
   footer: {
     flexDirection: 'row',

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Modal, Alert, ScrollView, KeyboardAvoidingView, Platform, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { OCRItem } from '../api/inventory-api';
-import { UNITS, STORAGE_LOCATIONS } from '../lib/utils/ocr-constants';
+import { UNITS } from '../lib/utils/ocr-constants';
 import { useImagePicker } from '../hooks/useImagePicker';
 import { useOCRAnalysis } from '../hooks/useOCRAnalysis';
 import { useItemSelection } from '../hooks/useItemSelection';
@@ -185,7 +185,6 @@ const InventoryOCRModal: React.FC<InventoryOCRModalProps> = ({
                   onToggleItem={toggleItem}
                   onSelectAll={selectAll}
                   units={UNITS}
-                  storageLocations={STORAGE_LOCATIONS}
                 />
 
                 <RegistrationButton

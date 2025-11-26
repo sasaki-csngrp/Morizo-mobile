@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Modal, TextInput, StyleSheet, Alert, ActivityIndicator, TouchableWithoutFeedback, Keyboard, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { addInventoryItem, updateInventoryItem, InventoryItem, InventoryItemData } from '../api/inventory-api';
+import { addInventoryItem, updateInventoryItem, deleteInventoryItem, InventoryItem, InventoryItemData } from '../api/inventory-api';
 import SelectionModal, { SelectionOption } from './SelectionModal';
 
 interface InventoryEditModalProps {
@@ -8,6 +8,7 @@ interface InventoryEditModalProps {
   onClose: () => void;
   item: InventoryItem | null; // nullの場合は新規作成
   onSave: () => void;
+  onDelete: () => void;
 }
 
 const InventoryEditModal: React.FC<InventoryEditModalProps> = ({
@@ -15,6 +16,7 @@ const InventoryEditModal: React.FC<InventoryEditModalProps> = ({
   onClose,
   item,
   onSave,
+  onDelete,
 }) => {
   const [itemName, setItemName] = useState('');
   const [quantity, setQuantity] = useState<string>('0');
@@ -22,6 +24,7 @@ const InventoryEditModal: React.FC<InventoryEditModalProps> = ({
   const [storageLocation, setStorageLocation] = useState('冷蔵庫');
   const [expiryDate, setExpiryDate] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isUnitModalOpen, setIsUnitModalOpen] = useState(false);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const quantityInputRef = useRef<TextInput>(null);
@@ -82,6 +85,38 @@ const InventoryEditModal: React.FC<InventoryEditModalProps> = ({
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleDelete = async () => {
+    if (!item) return;
+
+    Alert.alert(
+      '削除確認',
+      `「${item.item_name}」を削除しますか？`,
+      [
+        {
+          text: 'キャンセル',
+          style: 'cancel',
+        },
+        {
+          text: '削除',
+          style: 'destructive',
+          onPress: async () => {
+            setIsDeleting(true);
+            try {
+              await deleteInventoryItem(item.id);
+              onDelete();
+            } catch (error) {
+              console.error('Inventory delete failed:', error);
+              const errorMessage = error instanceof Error ? error.message : '削除に失敗しました';
+              Alert.alert('エラー', errorMessage);
+            } finally {
+              setIsDeleting(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (!isOpen) return null;
@@ -214,17 +249,30 @@ const InventoryEditModal: React.FC<InventoryEditModalProps> = ({
                     onPress={onClose}
                     style={[styles.button, styles.cancelButton]}
                   >
-                    <Text style={styles.cancelButtonText}>キャンセル</Text>
+                    <Text style={styles.cancelButtonText}>閉じる</Text>
                   </TouchableOpacity>
+                  {item && (
+                    <TouchableOpacity
+                      onPress={handleDelete}
+                      disabled={isDeleting || isSaving}
+                      style={[styles.button, styles.deleteButton, (isDeleting || isSaving) && styles.deleteButtonDisabled]}
+                    >
+                      {isDeleting ? (
+                        <ActivityIndicator size="small" color="#ffffff" />
+                      ) : (
+                        <Text style={styles.deleteButtonText}>削除</Text>
+                      )}
+                    </TouchableOpacity>
+                  )}
                   <TouchableOpacity
                     onPress={handleSave}
-                    disabled={isSaving}
-                    style={[styles.button, styles.saveButton, isSaving && styles.saveButtonDisabled]}
+                    disabled={isSaving || isDeleting}
+                    style={[styles.button, styles.saveButton, (isSaving || isDeleting) && styles.saveButtonDisabled]}
                   >
                     {isSaving ? (
                       <ActivityIndicator size="small" color="#ffffff" />
                     ) : (
-                      <Text style={styles.saveButtonText}>保存</Text>
+                      <Text style={styles.saveButtonText}>{item ? '更新' : '保存'}</Text>
                     )}
                   </TouchableOpacity>
                 </View>
@@ -400,6 +448,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#9ca3af',
   },
   saveButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  deleteButton: {
+    backgroundColor: '#dc2626',
+    marginRight: 12,
+  },
+  deleteButtonDisabled: {
+    backgroundColor: '#9ca3af',
+  },
+  deleteButtonText: {
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',

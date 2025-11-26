@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { View, Text, FlatList, TextInput, Switch, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { OCRItem } from '../../api/inventory-api';
-import { UNITS, STORAGE_LOCATIONS } from '../../lib/utils/ocr-constants';
+import { UNITS } from '../../lib/utils/ocr-constants';
 import SelectionModal, { SelectionOption } from '../SelectionModal';
 
 interface EditableItemListProps {
@@ -11,13 +11,13 @@ interface EditableItemListProps {
   onToggleItem: (index: number) => void;
   onSelectAll: (value: boolean) => void;
   units?: readonly string[];
-  storageLocations?: readonly string[];
 }
 
 /**
  * 編集可能なアイテムリストコンポーネント
  * 
  * 責任: OCR解析結果のアイテム一覧を編集可能なテーブル形式で表示し、選択機能を提供
+ * 登録用の確認画面として、アイテム名、数量、単位のみを表示
  * 
  * @param items - 編集可能なアイテムリスト
  * @param onItemEdit - アイテム編集時のコールバック
@@ -25,7 +25,6 @@ interface EditableItemListProps {
  * @param onToggleItem - アイテム選択/解除時のコールバック
  * @param onSelectAll - 全選択/全解除時のコールバック
  * @param units - 単位の配列（デフォルト: UNITS）
- * @param storageLocations - 保管場所の配列（デフォルト: STORAGE_LOCATIONS）
  */
 const EditableItemList: React.FC<EditableItemListProps> = ({
   items,
@@ -34,14 +33,11 @@ const EditableItemList: React.FC<EditableItemListProps> = ({
   onToggleItem,
   onSelectAll,
   units = UNITS,
-  storageLocations = STORAGE_LOCATIONS,
 }) => {
   const allSelected = selectedItems.size === items.length && items.length > 0;
-  const [openModal, setOpenModal] = useState<{ type: 'unit' | 'location'; index: number } | null>(null);
-  const quantityInputRefs = useRef<Record<number, TextInput | null>>({});
+  const [openModal, setOpenModal] = useState<{ type: 'unit'; index: number } | null>(null);
   
   const unitOptions: SelectionOption[] = units.map(u => ({ label: u, value: u }));
-  const locationOptions: SelectionOption[] = storageLocations.map(loc => ({ label: loc, value: loc }));
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -85,31 +81,17 @@ const EditableItemList: React.FC<EditableItemListProps> = ({
 
             {/* 数量 */}
             <View style={styles.quantityCell}>
-              <View style={styles.quantityInputContainer}>
-                <TextInput
-                  ref={(ref) => {
-                    quantityInputRefs.current[index] = ref;
-                  }}
-                  style={styles.quantityInput}
-                  value={item.quantity.toString()}
-                  onChangeText={(value) => {
-                    const num = parseFloat(value);
-                    onItemEdit(index, 'quantity', isNaN(num) ? 0 : num);
-                  }}
-                  keyboardType="decimal-pad"
-                  placeholder="0"
-                  placeholderTextColor="#999"
-                />
-                <TouchableOpacity
-                  style={styles.doneButtonSmall}
-                  onPress={() => {
-                    quantityInputRefs.current[index]?.blur();
-                    Keyboard.dismiss();
-                  }}
-                >
-                  <Text style={styles.doneButtonTextSmall}>✓</Text>
-                </TouchableOpacity>
-              </View>
+              <TextInput
+                style={styles.quantityInput}
+                value={item.quantity.toString()}
+                onChangeText={(value) => {
+                  const num = parseFloat(value);
+                  onItemEdit(index, 'quantity', isNaN(num) ? 0 : num);
+                }}
+                keyboardType="decimal-pad"
+                placeholder="0"
+                placeholderTextColor="#999"
+              />
             </View>
 
             {/* 単位 */}
@@ -125,31 +107,6 @@ const EditableItemList: React.FC<EditableItemListProps> = ({
                 <Text style={styles.selectButtonArrow}>▼</Text>
               </TouchableOpacity>
             </View>
-
-            {/* 保管場所 */}
-            <View style={styles.locationCell}>
-              <TouchableOpacity
-                style={styles.selectButton}
-                onPress={() => setOpenModal({ type: 'location', index })}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.selectButtonText} numberOfLines={1}>
-                  {item.storage_location || '冷蔵庫'}
-                </Text>
-                <Text style={styles.selectButtonArrow}>▼</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* 消費期限 */}
-            <View style={styles.dateCell}>
-              <TextInput
-                style={styles.itemInput}
-                value={item.expiry_date || ''}
-                onChangeText={(value) => onItemEdit(index, 'expiry_date', value || null)}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor="#999"
-              />
-            </View>
           </View>
         )}
         ListHeaderComponent={() => (
@@ -158,8 +115,6 @@ const EditableItemList: React.FC<EditableItemListProps> = ({
             <View style={styles.itemNameCell}><Text style={styles.headerText}>アイテム名</Text></View>
             <View style={styles.quantityCell}><Text style={styles.headerText}>数量</Text></View>
             <View style={styles.unitCell}><Text style={styles.headerText}>単位</Text></View>
-            <View style={styles.locationCell}><Text style={styles.headerText}>保管場所</Text></View>
-            <View style={styles.dateCell}><Text style={styles.headerText}>消費期限</Text></View>
           </View>
         )}
       />
@@ -170,20 +125,12 @@ const EditableItemList: React.FC<EditableItemListProps> = ({
           isOpen={true}
           onClose={() => setOpenModal(null)}
           onSelect={(value) => {
-            if (openModal.type === 'unit') {
-              onItemEdit(openModal.index, 'unit', value);
-            } else {
-              onItemEdit(openModal.index, 'storage_location', value);
-            }
+            onItemEdit(openModal.index, 'unit', value);
             setOpenModal(null);
           }}
-          options={openModal.type === 'unit' ? unitOptions : locationOptions}
-          selectedValue={
-            openModal.type === 'unit'
-              ? items[openModal.index]?.unit
-              : items[openModal.index]?.storage_location || '冷蔵庫'
-          }
-          title={openModal.type === 'unit' ? '単位を選択' : '保管場所を選択'}
+          options={unitOptions}
+          selectedValue={items[openModal.index]?.unit}
+          title="単位を選択"
         />
       )}
       </View>
@@ -250,14 +197,6 @@ const styles = StyleSheet.create({
   },
   unitCell: {
     flex: 1,
-    marginRight: 4,
-  },
-  locationCell: {
-    flex: 1.5,
-    marginRight: 4,
-  },
-  dateCell: {
-    flex: 1.5,
   },
   itemInput: {
     borderWidth: 1,
@@ -269,13 +208,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#1f2937',
   },
-  quantityInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
   quantityInput: {
-    flex: 1,
     borderWidth: 1,
     borderColor: '#d1d5db',
     borderRadius: 4,
@@ -284,19 +217,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     fontSize: 12,
     color: '#1f2937',
-  },
-  doneButtonSmall: {
-    backgroundColor: '#2563eb',
-    width: 28,
-    height: 28,
-    borderRadius: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  doneButtonTextSmall: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: 'bold',
   },
   selectButton: {
     flexDirection: 'row',

@@ -21,7 +21,6 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
   const [sortOrder, setSortOrder] = useState<string>('desc');
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [isCSVUploadModalOpen, setIsCSVUploadModalOpen] = useState(false);
   const [isOCRModalOpen, setIsOCRModalOpen] = useState(false);
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
@@ -57,9 +56,10 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return '-';
     const date = new Date(dateString);
-    return `${date.getMonth() + 1}/${date.getDate()}`;
+    return `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`;
   };
 
   // フィルター適用
@@ -102,35 +102,6 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
     setIsEditModalOpen(true);
   };
 
-  const handleDelete = async (itemId: string, itemName: string) => {
-    Alert.alert(
-      '削除確認',
-      `「${itemName}」を削除しますか？`,
-      [
-        {
-          text: 'キャンセル',
-          style: 'cancel',
-        },
-        {
-          text: '削除',
-          style: 'destructive',
-          onPress: async () => {
-            setIsDeleting(itemId);
-            try {
-              await deleteInventoryItem(itemId);
-              await loadInventory(); // 一覧を再読み込み
-            } catch (error) {
-              console.error('Inventory delete failed:', error);
-              const errorMessage = error instanceof Error ? error.message : '削除に失敗しました';
-              Alert.alert('エラー', errorMessage);
-            } finally {
-              setIsDeleting(null);
-            }
-          },
-        },
-      ]
-    );
-  };
 
   const handleEditModalClose = () => {
     setIsEditModalOpen(false);
@@ -138,6 +109,11 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
   };
 
   const handleEditModalSave = async () => {
+    await loadInventory(); // 一覧を再読み込み
+    handleEditModalClose();
+  };
+
+  const handleEditModalDelete = async () => {
     await loadInventory(); // 一覧を再読み込み
     handleEditModalClose();
   };
@@ -282,13 +258,17 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
                 <Text style={[styles.headerCell, styles.headerCellQuantity]}>数量</Text>
                 <Text style={[styles.headerCell, styles.headerCellUnit]}>単位</Text>
                 <Text style={[styles.headerCell, styles.headerCellLocation]}>場所</Text>
-                <Text style={[styles.headerCell, styles.headerCellDate]}>登録日</Text>
-                <Text style={[styles.headerCell, styles.headerCellActions]}>操作</Text>
+                <Text style={[styles.headerCell, styles.headerCellDate]}>賞味期限</Text>
               </View>
               
               {/* 在庫アイテム */}
               {filteredInventory.map((item) => (
-                <View key={item.id} style={styles.inventoryRow}>
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.inventoryRow}
+                  onPress={() => handleEdit(item)}
+                  activeOpacity={0.7}
+                >
                   <Text style={[styles.cell, styles.cellName]}>{item.item_name}</Text>
                   <Text style={[styles.cell, styles.cellQuantity]}>{item.quantity}</Text>
                   <Text style={[styles.cell, styles.cellUnit]}>{item.unit}</Text>
@@ -296,29 +276,9 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
                     {item.storage_location || '-'}
                   </Text>
                   <Text style={[styles.cell, styles.cellDate]}>
-                    {formatDate(item.created_at)}
+                    {formatDate(item.expiry_date)}
                   </Text>
-                  <View style={styles.cellActions}>
-                    <TouchableOpacity
-                      onPress={() => handleEdit(item)}
-                      style={styles.editButton}
-                    >
-                      <Text style={styles.editButtonText}>編集</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => handleDelete(item.id, item.item_name)}
-                      disabled={isDeleting === item.id}
-                      style={[
-                        styles.deleteButton,
-                        isDeleting === item.id && styles.deleteButtonDisabled
-                      ]}
-                    >
-                      <Text style={styles.deleteButtonText}>
-                        {isDeleting === item.id ? '削除中...' : '削除'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           )}
@@ -339,6 +299,7 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
           onClose={handleEditModalClose}
           item={editingItem}
           onSave={handleEditModalSave}
+          onDelete={handleEditModalDelete}
         />
         
         {/* CSVアップロードモーダル */}
@@ -539,10 +500,6 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'left',
   },
-  headerCellActions: {
-    width: 100,
-    textAlign: 'center',
-  },
   inventoryRow: {
     flexDirection: 'row',
     paddingVertical: 12,
@@ -574,39 +531,6 @@ const styles = StyleSheet.create({
   cellDate: {
     flex: 1,
     color: '#6b7280',
-  },
-  cellActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 8,
-    width: 100,
-    justifyContent: 'center',
-  },
-  editButton: {
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  editButtonText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  deleteButton: {
-    backgroundColor: '#dc2626',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-  },
-  deleteButtonDisabled: {
-    backgroundColor: '#9ca3af',
-  },
-  deleteButtonText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '600',
   },
   addButton: {
     backgroundColor: '#2563eb',

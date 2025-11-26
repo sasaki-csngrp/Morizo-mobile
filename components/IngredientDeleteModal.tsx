@@ -10,7 +10,6 @@ import {
   StyleSheet,
   Switch,
   Alert,
-  TouchableWithoutFeedback,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -223,8 +222,7 @@ const IngredientDeleteModal: React.FC<IngredientDeleteModalProps> = ({
         style={styles.keyboardAvoidingView}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.modalContainer}>
+        <View style={styles.modalContainer}>
           {/* ヘッダー */}
           <View style={styles.header}>
             <Text style={styles.headerTitle}>🗑️ 食材削除 - {formatDate(date)}</Text>
@@ -238,7 +236,14 @@ const IngredientDeleteModal: React.FC<IngredientDeleteModalProps> = ({
           </View>
 
           {/* コンテンツ */}
-          <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
+          <ScrollView 
+            style={styles.content} 
+            contentContainerStyle={styles.contentContainer}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}
+            onScrollBeginDrag={Keyboard.dismiss}
+          >
             {error && (
               <View style={styles.errorContainer}>
                 <Text style={styles.errorText}>⚠️ {error}</Text>
@@ -348,7 +353,6 @@ const IngredientDeleteModal: React.FC<IngredientDeleteModalProps> = ({
             </TouchableOpacity>
           </View>
         </View>
-      </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -387,7 +391,11 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  contentContainer: {
     padding: 16,
+    paddingBottom: 32,
+    flexGrow: 1,
   },
   errorContainer: {
     marginBottom: 16,
@@ -421,6 +429,7 @@ const styles = StyleSheet.create({
     borderColor: '#e5e7eb',
     borderRadius: 8,
     overflow: 'hidden',
+    marginBottom: 16,
   },
   tableHeader: {
     flexDirection: 'row',
@@ -455,6 +464,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
+    minHeight: 60,
   },
   cellProcess: {
     width: 80,

@@ -40,3 +40,8 @@ export {
   signInWithGoogle,
 } from './google-auth';
 
+// Apple認証
+export {
+  signInWithApple,
+} from './apple-auth';
+

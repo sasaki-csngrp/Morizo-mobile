@@ -9,6 +9,7 @@ import { signIn as signInMethod, signUp as signUpMethod, signOut as signOutMetho
 import { useAuthStateListener } from '../lib/auth/auth-state-listener';
 import { useDeepLinkingHandler } from '../lib/auth/deep-linking-handler';
 import { signInWithGoogle as signInWithGoogleMethod } from '../lib/auth/google-auth';
+import { signInWithApple as signInWithAppleMethod } from '../lib/auth/apple-auth';
 import { supabase } from '../lib/supabase';
 
 // WebBrowserをクリーンアップ（メモリリーク防止）
@@ -69,6 +70,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return await signInWithGoogleMethod();
   };
 
+  // Apple認証関数
+  const signInWithApple = async () => {
+    return await signInWithAppleMethod();
+  };
+
   // サインアウト関数
   const signOut = async () => {
     const userEmail = user?.email;
@@ -117,6 +123,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signIn,
     signUp,
     signInWithGoogle,
+    signInWithApple,
     signOut,
     clearSession,
   };

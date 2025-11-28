@@ -29,7 +29,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "jp.co.csngrp.morizo",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSMicrophoneUsageDescription": "音声入力でレシピの相談や在庫管理を行うためにマイクへのアクセスが必要です。例えば、「冷蔵庫に何がある？」と話しかけることで、音声で在庫を確認できます。"
       }
     },
     "android": {

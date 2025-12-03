@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 
 interface UserProfileModalProps {
@@ -10,8 +10,9 @@ interface UserProfileModalProps {
 }
 
 const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, onOpenHistory, onOpenInventory }) => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, deleteAccount } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const handleSignOut = async () => {
     setLoading(true);
@@ -22,6 +23,47 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, on
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'アカウントを削除',
+      'この操作は取り消せません。すべてのデータが削除されます。本当にアカウントを削除しますか？',
+      [
+        {
+          text: 'キャンセル',
+          style: 'cancel',
+        },
+        {
+          text: '削除する',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              const result = await deleteAccount();
+              if (!result.success) {
+                Alert.alert(
+                  'エラー',
+                  result.error || 'アカウントの削除に失敗しました。',
+                  [{ text: 'OK' }]
+                );
+              }
+              // 成功時は deleteAccount 内で signOut が実行されるため、
+              // ここでは何もしない（自動的にログイン画面に遷移）
+            } catch (error: any) {
+              Alert.alert(
+                'エラー',
+                error.message || 'アカウントの削除中にエラーが発生しました。',
+                [{ text: 'OK' }]
+              );
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   return (
@@ -64,12 +106,25 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, on
           <TouchableOpacity
             style={styles.signOutButton}
             onPress={handleSignOut}
-            disabled={loading}
+            disabled={loading || deleting}
           >
             {loading ? (
               <ActivityIndicator size="small" color="#ffffff" />
             ) : (
               <Text style={styles.signOutButtonText}>ログアウト</Text>
+            )}
+          </TouchableOpacity>
+
+          {/* アカウント削除ボタン */}
+          <TouchableOpacity
+            style={styles.deleteAccountButton}
+            onPress={handleDeleteAccount}
+            disabled={loading || deleting}
+          >
+            {deleting ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <Text style={styles.deleteAccountButtonText}>アカウントを削除</Text>
             )}
           </TouchableOpacity>
 
@@ -184,6 +239,20 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   signOutButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  deleteAccountButton: {
+    backgroundColor: '#991b1b',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  deleteAccountButtonText: {
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',

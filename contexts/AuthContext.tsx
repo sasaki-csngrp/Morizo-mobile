@@ -10,6 +10,7 @@ import { useAuthStateListener } from '../lib/auth/auth-state-listener';
 import { useDeepLinkingHandler } from '../lib/auth/deep-linking-handler';
 import { signInWithGoogle as signInWithGoogleMethod } from '../lib/auth/google-auth';
 import { signInWithApple as signInWithAppleMethod } from '../lib/auth/apple-auth';
+import { deleteUserAccount } from '../api/user-api';
 import { supabase } from '../lib/supabase';
 
 // WebBrowserをクリーンアップ（メモリリーク防止）
@@ -115,6 +116,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  // アカウント削除関数
+  const deleteAccount = async (): Promise<{ success: boolean; error?: string }> => {
+    safeLog.info(LogCategory.AUTH, 'アカウント削除処理開始');
+    
+    try {
+      // API呼び出し
+      const result = await deleteUserAccount();
+      
+      if (!result.success) {
+        safeLog.error(LogCategory.AUTH, 'アカウント削除失敗', { error: result.error });
+        return result;
+      }
+      
+      // 削除成功後、ログアウト処理を実行
+      safeLog.info(LogCategory.AUTH, 'アカウント削除成功、ログアウト処理を実行');
+      await signOut();
+      
+      return { success: true };
+    } catch (error: any) {
+      const errorMessage = error.message || '不明なエラー';
+      safeLog.error(LogCategory.AUTH, 'アカウント削除処理でエラー', { error: errorMessage });
+      return { success: false, error: errorMessage };
+    }
+  };
+
   const value: AuthContextType = {
     session,
     user,
@@ -125,6 +151,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signInWithGoogle,
     signInWithApple,
     signOut,
+    deleteAccount,
     clearSession,
   };
 

@@ -21,6 +21,7 @@ import RecipeListModal from '../components/RecipeListModal';
 import HistoryPanel from '../components/HistoryPanel';
 import InventoryPanel from '../components/InventoryPanel';
 import UserProfileModal from '../components/UserProfileModal';
+import SubscriptionScreen from './SubscriptionScreen';
 import ChatInput from '../components/ChatInput';
 import ChatMessageList from '../components/ChatMessageList';
 import { ProfileSection } from '../components/ProfileSection';
@@ -41,6 +42,7 @@ function ChatScreenContent() {
   const [isVoiceChatLoading, setIsVoiceChatLoading] = useState(false);
   const [awaitingSelection, setAwaitingSelection] = useState<boolean>(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isSubscriptionScreenOpen, setIsSubscriptionScreenOpen] = useState(false);
   const [isInventorySelectionModalOpen, setIsInventorySelectionModalOpen] = useState(false);
   const [isOtherProposalSelectionModalOpen, setIsOtherProposalSelectionModalOpen] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -245,7 +247,17 @@ function ChatScreenContent() {
           setIsProfileModalOpen(false);
           modalManagement.openInventoryPanel();
         }}
+        onOpenSubscription={() => {
+          setIsSubscriptionScreenOpen(true);
+        }}
       />
+
+      {/* サブスクリプション画面 */}
+      {isSubscriptionScreenOpen && (
+        <SubscriptionScreen
+          onClose={() => setIsSubscriptionScreenOpen(false)}
+        />
+      )}
 
       {/* 在庫選択モーダル */}
       <InventorySelectionModal

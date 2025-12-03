@@ -7,9 +7,10 @@ interface UserProfileModalProps {
   onClose: () => void;
   onOpenHistory: () => void;
   onOpenInventory: () => void;
+  onOpenSubscription?: () => void;
 }
 
-const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, onOpenHistory, onOpenInventory }) => {
+const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, onOpenHistory, onOpenInventory, onOpenSubscription }) => {
   const { user, signOut, deleteAccount } = useAuth();
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -101,6 +102,20 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, on
             <Text style={styles.statusText}>ログイン中</Text>
             <Text style={styles.emailText}>{user?.email}</Text>
           </View>
+
+          {/* サブスクリプションボタン */}
+          {onOpenSubscription && (
+            <TouchableOpacity
+              style={styles.subscriptionButton}
+              onPress={() => {
+                onClose();
+                onOpenSubscription();
+              }}
+              disabled={loading || deleting}
+            >
+              <Text style={styles.subscriptionButtonText}>💎 サブスクリプション</Text>
+            </TouchableOpacity>
+          )}
 
           {/* ログアウトボタン */}
           <TouchableOpacity
@@ -253,6 +268,21 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   deleteAccountButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  subscriptionButton: {
+    backgroundColor: '#8B5CF6',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  subscriptionButtonText: {
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',

@@ -47,20 +47,18 @@ try {
   isExpoGo = true;
 }
 
-// Expo Go環境でない場合のみインポートを試みる
-if (!isExpoGo) {
-  try {
-    const purchasesModule = require('react-native-purchases');
-    Purchases = purchasesModule.default;
-    CustomerInfo = purchasesModule.CustomerInfo;
-    PurchasesOffering = purchasesModule.PurchasesOffering;
-    PurchasesPackage = purchasesModule.PurchasesPackage;
-  } catch (error) {
-    // モジュールが見つからない場合は無視（Expo Go環境など）
-    // safeLogはまだ初期化されていない可能性があるため、console.logを使用
-    console.warn('[SubscriptionScreen] react-native-purchasesが見つかりません。Expo Go環境の可能性があります。');
-    isExpoGo = true; // モジュールが見つからない場合はExpo Goとみなす
-  }
+// RevenueCatのインポートを試みる（Expo Go環境でも試行）
+try {
+  const purchasesModule = require('react-native-purchases');
+  Purchases = purchasesModule.default;
+  CustomerInfo = purchasesModule.CustomerInfo;
+  PurchasesOffering = purchasesModule.PurchasesOffering;
+  PurchasesPackage = purchasesModule.PurchasesPackage;
+} catch (error) {
+  // モジュールが見つからない場合は無視（Expo Go環境など）
+  // safeLogはまだ初期化されていない可能性があるため、console.logを使用
+  console.warn('[SubscriptionScreen] react-native-purchasesが見つかりません。Expo Go環境の可能性があります。');
+  // Expo Go環境でも、後でSDKの呼び出しを試みるため、ここではエラーを無視
 }
 
 interface SubscriptionScreenProps {
@@ -74,7 +72,7 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
   const [isLoading, setIsLoading] = useState(true);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [offerings, setOfferings] = useState<any>(null);
-  const [isRevenueCatAvailable, setIsRevenueCatAvailable] = useState(!isExpoGo && Purchases !== null);
+  const [isRevenueCatAvailable, setIsRevenueCatAvailable] = useState(Purchases !== null);
 
   // 初期化とデータ取得
   useEffect(() => {
@@ -84,9 +82,13 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
 
   // RevenueCatの初期化
   const initializePurchases = async () => {
-    // Expo Go環境ではRevenueCatを使用できない
-    if (isExpoGo || !Purchases) {
-      safeLog.info(LogCategory.API, 'RevenueCatはExpo Go環境では使用できません。バックエンドAPI連携のみ動作します。');
+    // Purchasesが利用できない場合はスキップ
+    if (!Purchases) {
+      if (isExpoGo) {
+        safeLog.info(LogCategory.API, 'RevenueCatはExpo Go環境では使用できません。バックエンドAPI連携のみ動作します。');
+      } else {
+        safeLog.warn(LogCategory.API, 'RevenueCat SDKが利用できません');
+      }
       setIsRevenueCatAvailable(false);
       return;
     }
@@ -107,19 +109,32 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
         return;
       }
 
+      // Expo Go環境でも初期化を試みる（エラーが発生する可能性があるが、テストのため）
       await Purchases.configure({ apiKey: revenueCatApiKey });
-      safeLog.info(LogCategory.API, 'RevenueCat初期化成功');
+      safeLog.info(LogCategory.API, 'RevenueCat初期化成功', { isExpoGo });
       setIsRevenueCatAvailable(true);
 
-      // オファリングを取得
-      const offeringsData = await Purchases.getOfferings();
-      if (offeringsData.current) {
-        setOfferings(offeringsData.current);
+      // オファリングを取得（Expo Go環境ではエラーが発生する可能性がある）
+      try {
+        const offeringsData = await Purchases.getOfferings();
+        if (offeringsData.current) {
+          setOfferings(offeringsData.current);
+          safeLog.info(LogCategory.API, 'オファリング取得成功', { isExpoGo });
+        }
+      } catch (offeringsError: any) {
+        safeLog.warn(LogCategory.API, 'オファリング取得エラー（Expo Go環境の可能性）', { 
+          error: offeringsError.message,
+          isExpoGo 
+        });
+        // オファリング取得エラーでも続行（Expo Go環境など）
       }
     } catch (error: any) {
-      safeLog.error(LogCategory.API, 'RevenueCat初期化エラー', { error: error.message });
+      safeLog.error(LogCategory.API, 'RevenueCat初期化エラー', { 
+        error: error.message,
+        isExpoGo 
+      });
       setIsRevenueCatAvailable(false);
-      // エラーが発生しても続行（オフライン環境など）
+      // エラーが発生しても続行（Expo Go環境など）
     }
   };
 
@@ -227,6 +242,67 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
     setSelectedPlan(planType);
   };
 
+  // モック購入処理（Expo Go環境用）
+  const handleMockPurchase = async () => {
+    if (!selectedPlan || selectedPlan === 'free') {
+      return;
+    }
+
+    setIsPurchasing(true);
+    try {
+      // 確認ダイアログを表示
+      Alert.alert(
+        'テストモード',
+        `Expo Go環境では実際の購入処理はできませんが、バックエンドAPIのテストを実行します。\n\n${PLAN_DISPLAY_NAMES[selectedPlan]}プランに更新しますか？`,
+        [
+          {
+            text: 'キャンセル',
+            style: 'cancel',
+            onPress: () => setIsPurchasing(false)
+          },
+          {
+            text: 'テスト実行',
+            onPress: async () => {
+              try {
+                const productId = selectedPlan === 'pro' 
+                  ? SUBSCRIPTION_PRODUCTS.PRO_MONTHLY 
+                  : SUBSCRIPTION_PRODUCTS.ULTIMATE_MONTHLY;
+
+                const platform = Platform.OS === 'ios' ? 'ios' : 'android';
+                
+                // モックレシート情報でバックエンドAPIをテスト
+                const result = await updateSubscription({
+                  product_id: productId,
+                  platform,
+                  purchase_token: `mock_token_${Date.now()}`, // モックトークン
+                  receipt_data: `mock_receipt_${Date.now()}`, // モックレシート
+                  package_name: Platform.OS === 'android' ? 'jp.co.csngrp.morizo' : undefined,
+                });
+
+                if (result.success) {
+                  showSuccessAlert(`${PLAN_DISPLAY_NAMES[selectedPlan]}プランに更新しました（テストモード）`);
+                  setCurrentPlan(result.plan);
+                  setSelectedPlan(null);
+                  await loadSubscriptionData(); // データを再読み込み
+                } else {
+                  showErrorAlert(result.error || 'プランの更新に失敗しました');
+                }
+              } catch (error: any) {
+                safeLog.error(LogCategory.API, 'モック購入処理エラー', { error: error.message });
+                showErrorAlert(`プランの更新に失敗しました: ${error.message}`);
+              } finally {
+                setIsPurchasing(false);
+              }
+            }
+          }
+        ]
+      );
+    } catch (error: any) {
+      safeLog.error(LogCategory.API, 'モック購入処理エラー', { error: error.message });
+      setIsPurchasing(false);
+    }
+  };
+
   // 購入処理
   const handlePurchase = async () => {
     if (!selectedPlan || selectedPlan === 'free') {
@@ -234,12 +310,14 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
       return;
     }
 
-    // Expo Go環境では購入処理ができない
+    // RevenueCatが利用できない場合は、モック処理でテスト
     if (!isRevenueCatAvailable || !Purchases) {
-      showErrorAlert('購入機能はExpo Development Build環境でのみ利用できます。\nExpo Goでは動作しません。');
+      // Expo Go環境など: モック処理でバックエンドAPIのみテスト
+      await handleMockPurchase();
       return;
     }
 
+    // RevenueCatの購入処理を試みる（Expo Go環境でもエラーハンドリングでテスト可能）
     setIsPurchasing(true);
     try {
       // RevenueCatから商品を取得
@@ -251,18 +329,49 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
 
       // オファリングからパッケージを取得
       if (offerings) {
+        // Package IDまたはProduct IDで検索
         const packageToPurchase = offerings.availablePackages.find(
-          (pkg: any) => pkg.identifier === productId
+          (pkg: any) => 
+            pkg.identifier === productId || // Package IDで検索
+            pkg.product?.identifier === productId // Product IDで検索
         );
 
         if (packageToPurchase) {
-          purchaseResult = await Purchases.purchasePackage(packageToPurchase);
+          safeLog.info(LogCategory.API, '商品が見つかりました', {
+            packageId: packageToPurchase.identifier,
+            productId: packageToPurchase.product?.identifier,
+            selectedProductId: productId,
+            isExpoGo
+          });
+          
+          // Expo Go環境でも購入処理を試みる（エラーハンドリングでテスト可能）
+          try {
+            purchaseResult = await Purchases.purchasePackage(packageToPurchase);
+            safeLog.info(LogCategory.API, 'RevenueCat購入処理成功', { isExpoGo });
+          } catch (purchaseError: any) {
+            // Expo Go環境では、ネイティブモジュールのエラーが発生する可能性がある
+            safeLog.warn(LogCategory.API, 'RevenueCat購入処理エラー（Expo Go環境の可能性）', { 
+              error: purchaseError.message,
+              isExpoGo 
+            });
+            throw purchaseError; // エラーを再スローして、モック処理にフォールバック
+          }
         } else {
-          throw new Error('商品が見つかりません');
+          // デバッグ用: 利用可能なパッケージをログ出力
+          safeLog.warn(LogCategory.API, '商品が見つかりません', {
+            searchedProductId: productId,
+            availablePackages: offerings.availablePackages.map((pkg: any) => ({
+              packageId: pkg.identifier,
+              productId: pkg.product?.identifier
+            })),
+            isExpoGo
+          });
+          throw new Error(`商品が見つかりません: ${productId}`);
         }
       } else {
         // オファリングが取得できない場合、直接商品IDで購入を試みる
         // 注意: この方法は推奨されませんが、フォールバックとして使用
+        safeLog.warn(LogCategory.API, 'オファリングが取得できません', { isExpoGo });
         throw new Error('オファリングが取得できません');
       }
 
@@ -271,15 +380,26 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
         await syncPurchaseWithBackend(purchaseResult, productId);
       }
     } catch (error: any) {
-      safeLog.error(LogCategory.API, '購入処理エラー', { error: error.message });
+      safeLog.error(LogCategory.API, '購入処理エラー', { 
+        error: error.message,
+        isExpoGo 
+      });
       
       // ユーザーがキャンセルした場合はエラーを表示しない
       if (error.userCancelled) {
+        setIsPurchasing(false);
+        return;
+      }
+
+      // Expo Go環境などでRevenueCatの購入処理が失敗した場合、モック処理にフォールバック
+      if (isExpoGo || error.message?.includes('Native module') || error.message?.includes('not available')) {
+        safeLog.info(LogCategory.API, 'RevenueCat購入処理が失敗したため、モック処理にフォールバック', { isExpoGo });
+        setIsPurchasing(false);
+        await handleMockPurchase();
         return;
       }
 
       showErrorAlert(`購入に失敗しました: ${error.message}`);
-    } finally {
       setIsPurchasing(false);
     }
   };
@@ -472,16 +592,16 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
         {/* 購入ボタン */}
         {selectedPlan && selectedPlan !== currentPlan?.plan_type && (
           <TouchableOpacity
-            style={[styles.purchaseButton, (isPurchasing || !isRevenueCatAvailable) && styles.purchaseButtonDisabled]}
+            style={[styles.purchaseButton, isPurchasing && styles.purchaseButtonDisabled]}
             onPress={handlePurchase}
-            disabled={isPurchasing || !isRevenueCatAvailable}
+            disabled={isPurchasing}
           >
             {isPurchasing ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <Text style={styles.purchaseButtonText}>
                 {!isRevenueCatAvailable 
-                  ? '購入機能はExpo Development Buildが必要です'
+                  ? `${PLAN_DISPLAY_NAMES[selectedPlan]}プランをテスト（Expo Go）`
                   : `${PLAN_DISPLAY_NAMES[selectedPlan]}プランを購入`}
               </Text>
             )}

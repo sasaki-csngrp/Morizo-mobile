@@ -36,20 +36,33 @@
    - アプリの情報を入力（Bundle ID / Package Nameなど）
    - ストアの認証情報を設定（App Store Connect API Key / Google Play Service Account）
 
-2. **APIキーの取得**
+2. **ストア認証情報の設定**
+   
+   **Android側**:
+   - 詳細手順: `docs/ANDROID_PLAY_SERVICE_CREDENTIALS_SETUP.md`を参照
+   - Google Play Service Account JSONファイルをアップロード
+   
+   **iOS側**:
+   - 詳細手順: `docs/IOS_APP_STORE_CREDENTIALS_SETUP.md`を参照
+   - 以下の認証情報を設定:
+     - **App Store Connect API Key**（必須）: 製品情報のインポートに使用
+     - **In-App Purchase Key**（推奨）: StoreKit 2を使用する場合に必要
+     - **App-Specific Shared Secret**（オプション）: StoreKit 1の互換性のため
+
+3. **APIキーの取得**
    - 左メニュー → 「**API keys**」を選択
    - 「**Public API Keys**」セクションから取得
    - **iOS用**: `appl_xxxxxxxxxxxxxxxxxxxxx` 形式
    - **Android用**: `goog_xxxxxxxxxxxxxxxxxxxxx` 形式
 
-3. **環境変数に設定**
+4. **環境変数に設定**
    ```bash
    # .env ファイルに追加
    EXPO_PUBLIC_REVENUECAT_IOS_API_KEY=appl_xxxxxxxxxxxxxxxxxxxxx
    EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY=goog_xxxxxxxxxxxxxxxxxxxxx
    ```
 
-**注意**: この時点では、ストア側での商品登録はまだ不要です。RevenueCatでプラットフォームを追加するだけで、APIキーが生成されます。
+**注意**: この時点では、ストア側での商品登録はまだ不要です。RevenueCatでプラットフォームを追加し、認証情報を設定するだけで、APIキーが生成されます。
 
 #### 1.2 プラットフォーム固有APIキーでのテスト
 

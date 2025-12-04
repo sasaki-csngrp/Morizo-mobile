@@ -46,3 +46,6 @@ yarn-error.*
 
 # Serena
 .serena
+
+# ワークファイル
+zzz.md

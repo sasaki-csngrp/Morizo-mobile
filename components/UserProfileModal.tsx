@@ -14,6 +14,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, on
   const { user, signOut, deleteAccount } = useAuth();
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
 
   const handleSignOut = async () => {
     setLoading(true);
@@ -124,24 +125,37 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, on
             disabled={loading || deleting}
           >
             {loading ? (
-              <ActivityIndicator size="small" color="#ffffff" />
+              <ActivityIndicator size="small" color="#6b7280" />
             ) : (
               <Text style={styles.signOutButtonText}>ログアウト</Text>
             )}
           </TouchableOpacity>
 
-          {/* アカウント削除ボタン */}
+          {/* もっと見るボタン */}
           <TouchableOpacity
-            style={styles.deleteAccountButton}
-            onPress={handleDeleteAccount}
+            style={styles.moreOptionsButton}
+            onPress={() => setShowMoreOptions(!showMoreOptions)}
             disabled={loading || deleting}
           >
-            {deleting ? (
-              <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <Text style={styles.deleteAccountButtonText}>アカウントを削除</Text>
-            )}
+            <Text style={styles.moreOptionsButtonText}>
+              {showMoreOptions ? 'もっと見る▲' : 'もっと見る▼'}
+            </Text>
           </TouchableOpacity>
+
+          {/* アカウント削除ボタン（もっと見るを押したら表示） */}
+          {showMoreOptions && (
+            <TouchableOpacity
+              style={styles.deleteAccountButton}
+              onPress={handleDeleteAccount}
+              disabled={loading || deleting}
+            >
+              {deleting ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={styles.deleteAccountButtonText}>アカウントを削除</Text>
+              )}
+            </TouchableOpacity>
+          )}
 
           {/* 閉じるボタン（下部） */}
           <TouchableOpacity
@@ -245,7 +259,7 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
   },
   signOutButton: {
-    backgroundColor: '#dc2626',
+    backgroundColor: '#6b7280',
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
@@ -257,6 +271,19 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  moreOptionsButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  moreOptionsButtonText: {
+    color: '#6b7280',
+    fontSize: 14,
+    fontWeight: '500',
   },
   deleteAccountButton: {
     backgroundColor: '#991b1b',

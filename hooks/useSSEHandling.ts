@@ -283,13 +283,19 @@ export function useSSEHandling(
   // StreamingProgressのonErrorコールバック
   const createOnErrorHandler = (message: ChatMessage, messageIndex: number) => {
     return (error: string) => {
+      // 利用回数制限のエラーメッセージの場合、追加の案内を付ける
+      let errorContent = `エラー: ${error}`;
+      if (error.includes('利用回数制限に達しました') || error.includes('利用回数制限')) {
+        errorContent = `${errorContent}\n\nユーザープロフィール画面のサブスクリプションを確認してください。`;
+      }
+      
       // エラー時はエラーメッセージに置き換え
       setChatMessages(prev => prev.map((msg, idx) => 
         idx === messageIndex
           ? { 
               id: msg.id,
               type: 'ai', 
-              content: `エラー: ${error}`,
+              content: errorContent,
               timestamp: msg.timestamp
             }
           : msg

@@ -20,7 +20,7 @@ import {
   PlanInfo,
   UsageLimitInfo 
 } from '../api/subscription-api';
-import { PlanType, PLAN_DISPLAY_NAMES, SUBSCRIPTION_PRODUCTS } from '../config/subscription';
+import { PlanType, PLAN_DISPLAY_NAMES, SUBSCRIPTION_PRODUCTS, PLAN_TO_PRODUCT_ID } from '../config/subscription';
 import { showErrorAlert, showSuccessAlert } from '../utils/alert';
 import { safeLog, LogCategory } from '../lib/logging';
 import Constants from 'expo-constants';
@@ -32,19 +32,22 @@ let PurchasesOffering: any = null;
 let PurchasesPackage: any = null;
 
 // Expo Go環境の検出（安全な方法）
-// ExecutionEnvironmentが存在しない場合（Expo Go環境など）は、常にExpo Goとみなす
+// ExecutionEnvironmentがStoreClientの場合のみExpo Go環境と判定
 let isExpoGo = false;
 try {
   // ExecutionEnvironmentが存在するかチェック
-  if (Constants.ExecutionEnvironment && Constants.executionEnvironment) {
+  if (Constants.ExecutionEnvironment && Constants.executionEnvironment !== undefined) {
+    // StoreClientの場合のみExpo Go環境
     isExpoGo = Constants.executionEnvironment === Constants.ExecutionEnvironment.StoreClient;
   } else {
-    // ExecutionEnvironmentが存在しない場合は、Expo Go環境とみなす
-    isExpoGo = true;
+    // ExecutionEnvironmentが存在しない場合は、スタンドアロンビルド（EASビルドなど）とみなす
+    // Expo Goではない
+    isExpoGo = false;
   }
 } catch (error) {
-  // エラーが発生した場合は、Expo Go環境とみなす
-  isExpoGo = true;
+  // エラーが発生した場合は、安全のためExpo Goではないとみなす
+  // （スタンドアロンビルドの可能性が高い）
+  isExpoGo = false;
 }
 
 // RevenueCatのインポートを試みる（Expo Go環境でも試行）
@@ -63,6 +66,57 @@ try {
 
 interface SubscriptionScreenProps {
   onClose?: () => void;
+}
+
+/**
+ * 次のリセット時刻（明朝0:00 JST）を取得
+ * @returns ISO 8601形式の文字列
+ */
+function getNextResetTime(): string {
+  // 日本時間（JST）のタイムゾーンを設定
+  const jstOffset = 9 * 60; // JSTはUTC+9
+  const now = new Date();
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const jst = new Date(utc + (jstOffset * 60000));
+  
+  // 今日の0:00を取得
+  const today = new Date(jst);
+  today.setHours(0, 0, 0, 0);
+  
+  // 現在時刻が今日の0:00より後なら、明日の0:00を返す
+  if (jst >= today) {
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString();
+  }
+  
+  // 現在時刻が今日の0:00より前なら、今日の0:00を返す
+  return today.toISOString();
+}
+
+/**
+ * リセット時刻をフォーマット（明朝0:00 JST形式で表示）
+ * @param resetAt ISO 8601形式の文字列
+ * @returns フォーマットされた文字列
+ */
+function formatResetTime(resetAt: string): string {
+  try {
+    const date = new Date(resetAt);
+    // 日本時間（JST）に変換
+    const jstOffset = 9 * 60; // JSTはUTC+9
+    const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+    const jst = new Date(utc + (jstOffset * 60000));
+    
+    // 明朝0:00の形式で表示
+    const year = jst.getFullYear();
+    const month = String(jst.getMonth() + 1).padStart(2, '0');
+    const day = String(jst.getDate()).padStart(2, '0');
+    
+    return `${year}/${month}/${day} 0:00:00`;
+  } catch (error) {
+    // パースエラーの場合は元の文字列を返す
+    return resetAt;
+  }
 }
 
 export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps = {}) {
@@ -189,7 +243,7 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
               current: ocrCount,
               limit: limits.ocr,
             },
-            reset_at: (usageData as any).reset_at || new Date().toISOString(),
+            reset_at: (usageData as any).reset_at || getNextResetTime(),
           };
           
           safeLog.info(LogCategory.API, '利用回数データ正規化', { 
@@ -209,7 +263,7 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
           menu_bulk: { current: 0, limit: limits.menu_bulk },
           menu_step: { current: 0, limit: limits.menu_step },
           ocr: { current: 0, limit: limits.ocr },
-          reset_at: new Date().toISOString(),
+          reset_at: getNextResetTime(),
         });
       }
     } catch (error: any) {
@@ -251,9 +305,14 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
     setIsPurchasing(true);
     try {
       // 確認ダイアログを表示
+      const dialogTitle = isExpoGo ? 'テストモード（Expo Go）' : 'テストモード';
+      const dialogMessage = isExpoGo
+        ? `Expo Go環境では実際の購入処理はできませんが、バックエンドAPIのテストを実行します。\n\n${PLAN_DISPLAY_NAMES[selectedPlan]}プランに更新しますか？`
+        : `RevenueCatが利用できないため、バックエンドAPIのテストを実行します。\n\n${PLAN_DISPLAY_NAMES[selectedPlan]}プランに更新しますか？`;
+      
       Alert.alert(
-        'テストモード',
-        `Expo Go環境では実際の購入処理はできませんが、バックエンドAPIのテストを実行します。\n\n${PLAN_DISPLAY_NAMES[selectedPlan]}プランに更新しますか？`,
+        dialogTitle,
+        dialogMessage,
         [
           {
             text: 'キャンセル',
@@ -303,18 +362,46 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
     }
   };
 
-  // 購入処理
+  // プラン変更処理（購入・ダウングレード両方に対応）
   const handlePurchase = async () => {
-    if (!selectedPlan || selectedPlan === 'free') {
+    if (!selectedPlan) {
       showErrorAlert('プランを選択してください');
       return;
     }
 
-    // RevenueCatが利用できない場合は、モック処理でテスト
-    if (!isRevenueCatAvailable || !Purchases) {
-      // Expo Go環境など: モック処理でバックエンドAPIのみテスト
-      await handleMockPurchase();
+    // 無料プランへのダウングレード処理
+    if (selectedPlan === 'free') {
+      if (currentPlan?.plan_type === 'free') {
+        showErrorAlert('すでに無料プランです');
+        return;
+      }
+
+      // 情報ダイアログを表示
+      Alert.alert(
+        'プランを変更',
+        '現在のサブスクリプションは、ストア側でキャンセルして下さい。',
+        [
+          {
+            text: 'キャンセル',
+            style: 'cancel'
+          }
+        ]
+      );
       return;
+    }
+
+    // RevenueCatが利用できない場合は、モック処理でテスト
+    // ただし、EASビルド環境では通常のエラーメッセージを表示する
+    if (!isRevenueCatAvailable || !Purchases) {
+      if (isExpoGo) {
+        // Expo Go環境: モック処理でバックエンドAPIのみテスト
+        await handleMockPurchase();
+        return;
+      } else {
+        // EASビルド環境: RevenueCatが利用できない場合はエラーを表示
+        showErrorAlert('RevenueCatが利用できません。アプリを再起動してください。');
+        return;
+      }
     }
 
     // RevenueCatの購入処理を試みる（Expo Go環境でもエラーハンドリングでテスト可能）
@@ -366,6 +453,21 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
             })),
             isExpoGo
           });
+          
+          // Expo Go環境でプレビュー用のパッケージしかない場合、早期にモック処理にフォールバック
+          const hasOnlyPreviewPackages = offerings.availablePackages.every(
+            (pkg: any) => 
+              pkg.identifier === 'preview-package-id' || 
+              pkg.product?.identifier === 'preview-product-id'
+          );
+          
+          if (isExpoGo && hasOnlyPreviewPackages) {
+            safeLog.info(LogCategory.API, 'Expo Go環境でプレビュー用パッケージのみのため、モック処理にフォールバック', { isExpoGo });
+            setIsPurchasing(false);
+            await handleMockPurchase();
+            return;
+          }
+          
           throw new Error(`商品が見つかりません: ${productId}`);
         }
       } else {
@@ -392,8 +494,12 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
       }
 
       // Expo Go環境などでRevenueCatの購入処理が失敗した場合、モック処理にフォールバック
-      if (isExpoGo || error.message?.includes('Native module') || error.message?.includes('not available')) {
-        safeLog.info(LogCategory.API, 'RevenueCat購入処理が失敗したため、モック処理にフォールバック', { isExpoGo });
+      if (isExpoGo || error.message?.includes('Native module') || error.message?.includes('not available') || error.message?.includes('商品が見つかりません')) {
+        if (isExpoGo) {
+          safeLog.info(LogCategory.API, 'Expo Go環境ではRevenueCatの購入機能は使用できません。モック処理にフォールバックします。', { isExpoGo });
+        } else {
+          safeLog.info(LogCategory.API, 'RevenueCat購入処理が失敗したため、モック処理にフォールバック', { isExpoGo });
+        }
         setIsPurchasing(false);
         await handleMockPurchase();
         return;
@@ -463,21 +569,114 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
 
     try {
       setIsLoading(true);
+      
+      // Expo Go環境では、RevenueCatの復元機能が完全に動作しない可能性がある
+      if (isExpoGo) {
+        safeLog.warn(LogCategory.API, 'Expo Go環境では購入復元機能は使用できません', { isExpoGo });
+        showErrorAlert('購入復元機能はExpo Development Build環境でのみ利用できます。\nExpo Goでは動作しません。');
+        return;
+      }
+      
       const customerInfo = await Purchases.restorePurchases();
       
-      if (customerInfo.entitlements.active) {
-        // アクティブなサブスクリプションがある場合、バックエンドと同期
-        const activeEntitlement = Object.keys(customerInfo.entitlements.active)[0];
-        const productId = activeEntitlement;
-        
-        await syncPurchaseWithBackend(customerInfo, productId);
-        showSuccessAlert('購入を復元しました');
-      } else {
+      // CustomerInfoの構造を安全に確認
+      if (!customerInfo || !customerInfo.entitlements || !customerInfo.entitlements.active) {
+        safeLog.warn(LogCategory.API, '復元: アクティブなエンタイトルメントが見つかりません', {
+          hasCustomerInfo: !!customerInfo,
+          hasEntitlements: !!(customerInfo?.entitlements),
+          hasActive: !!(customerInfo?.entitlements?.active),
+          isExpoGo
+        });
         showErrorAlert('復元できる購入が見つかりませんでした');
+        return;
       }
+      
+      // アクティブなサブスクリプションがある場合、バックエンドと同期
+      const activeEntitlementKeys = Object.keys(customerInfo.entitlements.active);
+      
+      if (activeEntitlementKeys.length === 0) {
+        safeLog.warn(LogCategory.API, '復元: アクティブなエンタイトルメントが0件', { isExpoGo });
+        showErrorAlert('復元できる購入が見つかりませんでした');
+        return;
+      }
+      
+      const activeEntitlementKey = activeEntitlementKeys[0];
+      const activeEntitlement = customerInfo.entitlements.active[activeEntitlementKey];
+      
+      // activeEntitlementが存在することを確認
+      if (!activeEntitlement) {
+        safeLog.error(LogCategory.API, '復元エラー: エンタイトルメントオブジェクトが取得できません', {
+          entitlementKey: activeEntitlementKey,
+          availableKeys: activeEntitlementKeys,
+          isExpoGo
+        });
+        showErrorAlert('復元に失敗しました: エンタイトルメント情報を取得できませんでした');
+        return;
+      }
+      
+      // エンタイトルメントからProduct IDを取得
+      // RevenueCatのエンタイトルメントにはproductIdentifierプロパティがある
+      let productId: string | undefined;
+      
+      if (activeEntitlement.productIdentifier) {
+        // エンタイトルメントから直接Product IDを取得
+        productId = activeEntitlement.productIdentifier;
+        safeLog.info(LogCategory.API, '復元: productIdentifierからProduct IDを取得', {
+          entitlementKey: activeEntitlementKey,
+          productId,
+          isExpoGo
+        });
+      } else if (activeEntitlement.latestPurchaseDate) {
+        // productIdentifierが取得できない場合、エンタイトルメントIDからProduct IDを推測
+        // エンタイトルメントID（pro/ultimate）をplan_typeとして使用し、マッピングからProduct IDを取得
+        const planType = activeEntitlementKey as PlanType;
+        productId = PLAN_TO_PRODUCT_ID[planType] || undefined;
+        safeLog.info(LogCategory.API, '復元: エンタイトルメントIDからProduct IDを推測', {
+          entitlementKey: activeEntitlementKey,
+          planType,
+          productId,
+          isExpoGo
+        });
+      } else {
+        // エンタイトルメントIDから直接Product IDを推測（フォールバック）
+        const planType = activeEntitlementKey as PlanType;
+        productId = PLAN_TO_PRODUCT_ID[planType] || undefined;
+        safeLog.info(LogCategory.API, '復元: エンタイトルメントIDからProduct IDを推測（フォールバック）', {
+          entitlementKey: activeEntitlementKey,
+          planType,
+          productId,
+          isExpoGo
+        });
+      }
+      
+      if (!productId) {
+        safeLog.error(LogCategory.API, '復元エラー: Product IDを取得できませんでした', {
+          entitlementKey: activeEntitlementKey,
+          entitlement: activeEntitlement,
+          availableKeys: activeEntitlementKeys,
+          isExpoGo
+        });
+        showErrorAlert('復元に失敗しました: 商品IDを取得できませんでした');
+        return;
+      }
+      
+      safeLog.info(LogCategory.API, '購入復元: Product IDを取得', {
+        entitlementKey: activeEntitlementKey,
+        productId,
+        isExpoGo
+      });
+      
+      await syncPurchaseWithBackend(customerInfo, productId);
+      showSuccessAlert('購入を復元しました');
     } catch (error: any) {
-      safeLog.error(LogCategory.API, '購入復元エラー', { error: error.message });
-      showErrorAlert(`購入の復元に失敗しました: ${error.message}`);
+      safeLog.error(LogCategory.API, '購入復元エラー', { error: error.message, isExpoGo });
+      
+      // Expo Go環境でのエラーの場合、より明確なメッセージを表示
+      if (isExpoGo || error.message?.includes('Native module') || error.message?.includes('not available')) {
+        showErrorAlert('購入復元機能はExpo Development Build環境でのみ利用できます。\nExpo Goでは動作しません。');
+      } else {
+        showErrorAlert(`購入の復元に失敗しました: ${error.message}`);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -553,7 +752,7 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
               </View>
               {usageInfo.reset_at && (
                 <Text style={styles.resetInfo}>
-                  リセット時刻: {new Date(usageInfo.reset_at).toLocaleString('ja-JP')}
+                  リセット時刻: {formatResetTime(usageInfo.reset_at)}
                 </Text>
               )}
             </View>
@@ -589,19 +788,30 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
           />
         </View>
 
-        {/* 購入ボタン */}
+        {/* 購入/変更ボタン */}
         {selectedPlan && selectedPlan !== currentPlan?.plan_type && (
           <TouchableOpacity
-            style={[styles.purchaseButton, isPurchasing && styles.purchaseButtonDisabled]}
+            style={[
+              styles.purchaseButton, 
+              isPurchasing && styles.purchaseButtonDisabled,
+              selectedPlan === 'free' && styles.downgradeButton
+            ]}
             onPress={handlePurchase}
             disabled={isPurchasing}
           >
             {isPurchasing ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.purchaseButtonText}>
-                {!isRevenueCatAvailable 
+              <Text style={[
+                styles.purchaseButtonText,
+                selectedPlan === 'free' && styles.downgradeButtonText
+              ]}>
+                {selectedPlan === 'free'
+                  ? '無料プランに変更'
+                  : isExpoGo && !isRevenueCatAvailable
                   ? `${PLAN_DISPLAY_NAMES[selectedPlan]}プランをテスト（Expo Go）`
+                  : !isRevenueCatAvailable
+                  ? `${PLAN_DISPLAY_NAMES[selectedPlan]}プランをテスト`
                   : `${PLAN_DISPLAY_NAMES[selectedPlan]}プランを購入`}
               </Text>
             )}
@@ -627,6 +837,16 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
               バックエンドAPI連携（プラン情報・利用回数の表示）のみ動作します。
             </Text>
           </View>
+        )}
+
+        {/* 閉じるボタン */}
+        {onClose && (
+          <TouchableOpacity
+            style={styles.closeButtonBottom}
+            onPress={onClose}
+          >
+            <Text style={styles.closeButtonBottomText}>閉じる</Text>
+          </TouchableOpacity>
         )}
         </ScrollView>
         )}
@@ -748,6 +968,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
+  downgradeButton: {
+    backgroundColor: '#6B7280', // グレー（無料プランカードと同じ色）
+  },
+  downgradeButtonText: {
+    color: '#FFFFFF',
+  },
   restoreButton: {
     padding: 16,
     alignItems: 'center',
@@ -775,6 +1001,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#92400E',
     lineHeight: 20,
+  },
+  closeButtonBottom: {
+    marginTop: 24,
+    marginBottom: 16,
+    padding: 16,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  closeButtonBottomText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
   },
 });
 

@@ -18,7 +18,13 @@ export const showAlert = (title: string, message?: string) => {
  * エラーアラート表示関数
  */
 export const showErrorAlert = (message: string) => {
-  showAlert('エラー', message);
+  // 利用回数制限のエラーメッセージの場合、追加の案内を表示
+  if (message.includes('利用回数制限に達しました') || message.includes('利用回数制限')) {
+    const enhancedMessage = `${message}\n\nユーザープロフィール画面のサブスクリプションを確認してください。`;
+    showAlert('エラー', enhancedMessage);
+  } else {
+    showAlert('エラー', message);
+  }
 };
 
 /**

@@ -209,13 +209,19 @@ export function useChatMessages(
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '不明なエラー';
       
+      // 利用回数制限のエラーメッセージの場合、追加の案内を付ける
+      let errorContent = `エラー: ${errorMessage}`;
+      if (errorMessage.includes('利用回数制限に達しました') || errorMessage.includes('利用回数制限')) {
+        errorContent = `${errorContent}\n\nユーザープロフィール画面のサブスクリプションを確認してください。`;
+      }
+      
       // エラー時はストリーミング進捗表示をエラーメッセージに置き換え
       setChatMessages(prev => prev.map((msg) => 
         msg.type === 'streaming' && msg.sseSessionId === sseSessionId
           ? { 
               id: msg.id,
               type: 'ai', 
-              content: `エラー: ${errorMessage}`,
+              content: errorContent,
               timestamp: msg.timestamp
             }
           : msg
@@ -329,13 +335,19 @@ export function useChatMessages(
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '不明なエラー';
       
+      // 利用回数制限のエラーメッセージの場合、追加の案内を付ける
+      let errorContent = `エラー: ${errorMessage}`;
+      if (errorMessage.includes('利用回数制限に達しました') || errorMessage.includes('利用回数制限')) {
+        errorContent = `${errorContent}\n\nユーザープロフィール画面のサブスクリプションを確認してください。`;
+      }
+      
       // エラー時はストリーミング進捗表示をエラーメッセージに置き換え
       setChatMessages(prev => prev.map((msg) => 
         msg.type === 'streaming' && msg.sseSessionId === sseSessionId
           ? { 
               id: msg.id,
               type: 'ai', 
-              content: `エラー: ${errorMessage}`,
+              content: errorContent,
               timestamp: msg.timestamp
             }
           : msg

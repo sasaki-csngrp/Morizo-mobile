@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { analyzeReceiptOCR, OCRItem, OCRResult, registerOCRMapping } from '../api/inventory-api';
+import { showErrorAlert } from '../utils/alert';
 
 /**
  * OCR解析処理を管理するカスタムフック
@@ -44,7 +45,7 @@ export function useOCRAnalysis() {
     } catch (error) {
       console.error('OCR analysis failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'OCR解析に失敗しました';
-      Alert.alert('エラー', errorMessage);
+      showErrorAlert(errorMessage);
       setOcrResult(null);
       setEditableItems([]);
     } finally {

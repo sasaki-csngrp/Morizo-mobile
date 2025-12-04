@@ -399,6 +399,41 @@ npx expo start --tunnel
 - 開発環境でのログビューアー表示のみ
 - ログ生成機能には影響なし
 
+### Expo Go環境でのRevenueCat制限
+
+**問題**: Expo Go環境では、RevenueCatの購入機能が完全に動作しない
+
+**症状**: 
+- RevenueCatの初期化は成功する場合がある
+- オファリング取得時にプレビュー用のパッケージ（`preview-package-id`, `preview-product-id`）しか返されない
+- 実際の商品ID（`morizo_ultimate_monthly`など）が見つからないエラーが発生
+- エラーログに`isExpoGo: true`が含まれる
+
+**原因**: 
+- `react-native-purchases`はネイティブモジュールのため、Expo Go環境では完全に動作しない
+- Expo Go環境では、RevenueCatのPreview API Modeが動作する場合があるが、実際の商品は取得できない
+
+**回避策**:
+- **開発ビルド（Development Build）を作成**してテストする（推奨）
+  ```bash
+  # 開発ビルドの作成
+  eas build --profile development --platform android
+  # または
+  eas build --profile development --platform ios
+  ```
+- Expo Go環境では、バックエンドAPI連携（プラン情報・利用回数の表示）のみ動作
+- 購入処理は自動的にモック処理にフォールバックされる
+
+**影響範囲**:
+- Expo Go環境でのRevenueCat購入機能のみ
+- バックエンドAPI連携には影響なし
+- 開発ビルドまたは本番ビルドでは正常に動作
+
+**実装詳細**:
+- Expo Go環境を検出すると、自動的にモック処理にフォールバック
+- プレビュー用のパッケージしかない場合も、早期にモック処理にフォールバック
+- エラーメッセージにExpo Go環境での制限が明記される
+
 ## デバッグ環境のセットアップ
 
 ### EASビルドAPKのローカルデバッグ

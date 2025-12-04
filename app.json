@@ -23,7 +23,20 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "gradleProperties": {
+              "org.gradle.jvmargs": "-Xmx4096m -XX:MaxMetaspaceSize=512m",
+              "org.gradle.parallel": "true",
+              "org.gradle.configureondemand": "true",
+              "org.gradle.daemon": "true"
+            }
+          }
+        }
+      ]
     ],
     "ios": {
       "supportsTablet": true,

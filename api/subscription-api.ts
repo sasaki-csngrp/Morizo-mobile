@@ -70,10 +70,12 @@ export interface SubscriptionUpdateResponse {
  */
 export async function getCurrentPlan(): Promise<PlanInfo> {
   const timer = safeLog.timer('get-current-plan');
+  const apiUrl = `${getApiUrl()}/subscription/plan`;
   try {
-    safeLog.info(LogCategory.API, 'プラン情報取得API呼び出し開始');
-    
-    const apiUrl = `${getApiUrl()}/subscription/plan`;
+    safeLog.info(LogCategory.API, 'プラン情報取得API呼び出し開始', { 
+      url: apiUrl,
+      method: 'GET'
+    });
     
     const response = await authenticatedFetch(apiUrl, {
       method: 'GET',
@@ -84,6 +86,7 @@ export async function getCurrentPlan(): Promise<PlanInfo> {
       const errorMessage = errorData.detail || errorData.error || `HTTP error! status: ${response.status}`;
       safeLog.error(LogCategory.API, 'プラン情報取得API呼び出し失敗', { 
         url: apiUrl,
+        method: 'GET',
         status: response.status, 
         error: errorMessage 
       });
@@ -93,6 +96,9 @@ export async function getCurrentPlan(): Promise<PlanInfo> {
     
     const data = await response.json();
     safeLog.info(LogCategory.API, 'プラン情報取得API呼び出し成功', { 
+      url: apiUrl,
+      method: 'GET',
+      status: response.status,
       plan: data.plan_type 
     });
     
@@ -100,9 +106,9 @@ export async function getCurrentPlan(): Promise<PlanInfo> {
     return data;
   } catch (error: any) {
     const errorMessage = error.message || '不明なエラー';
-    const apiUrl = `${getApiUrl()}/subscription/plan`;
     safeLog.error(LogCategory.API, 'プラン情報取得API呼び出しエラー', { 
       url: apiUrl,
+      method: 'GET',
       error: errorMessage 
     });
     timer();
@@ -116,10 +122,12 @@ export async function getCurrentPlan(): Promise<PlanInfo> {
  */
 export async function getTodayUsage(): Promise<UsageLimitInfo> {
   const timer = safeLog.timer('get-today-usage');
+  const apiUrl = `${getApiUrl()}/subscription/usage`;
   try {
-    safeLog.info(LogCategory.API, '利用回数取得API呼び出し開始');
-    
-    const apiUrl = `${getApiUrl()}/subscription/usage`;
+    safeLog.info(LogCategory.API, '利用回数取得API呼び出し開始', { 
+      url: apiUrl,
+      method: 'GET'
+    });
     
     const response = await authenticatedFetch(apiUrl, {
       method: 'GET',
@@ -130,6 +138,7 @@ export async function getTodayUsage(): Promise<UsageLimitInfo> {
       const errorMessage = errorData.detail || errorData.error || `HTTP error! status: ${response.status}`;
       safeLog.error(LogCategory.API, '利用回数取得API呼び出し失敗', { 
         url: apiUrl,
+        method: 'GET',
         status: response.status, 
         error: errorMessage 
       });
@@ -139,6 +148,9 @@ export async function getTodayUsage(): Promise<UsageLimitInfo> {
     
     const data = await response.json();
     safeLog.info(LogCategory.API, '利用回数取得API呼び出し成功', { 
+      url: apiUrl,
+      method: 'GET',
+      status: response.status,
       usage: data 
     });
     
@@ -146,9 +158,9 @@ export async function getTodayUsage(): Promise<UsageLimitInfo> {
     return data;
   } catch (error: any) {
     const errorMessage = error.message || '不明なエラー';
-    const apiUrl = `${getApiUrl()}/subscription/usage`;
     safeLog.error(LogCategory.API, '利用回数取得API呼び出しエラー', { 
       url: apiUrl,
+      method: 'GET',
       error: errorMessage 
     });
     timer();
@@ -165,13 +177,14 @@ export async function updateSubscription(
   request: SubscriptionUpdateRequest
 ): Promise<SubscriptionUpdateResponse> {
   const timer = safeLog.timer('update-subscription');
+  const apiUrl = `${getApiUrl()}/subscription/update`;
   try {
     safeLog.info(LogCategory.API, 'サブスクリプション更新API呼び出し開始', { 
+      url: apiUrl,
+      method: 'POST',
       product_id: request.product_id,
       platform: request.platform 
     });
-    
-    const apiUrl = `${getApiUrl()}/subscription/update`;
     
     const response = await authenticatedFetch(apiUrl, {
       method: 'POST',
@@ -183,6 +196,7 @@ export async function updateSubscription(
       const errorMessage = errorData.detail || errorData.error || `HTTP error! status: ${response.status}`;
       safeLog.error(LogCategory.API, 'サブスクリプション更新API呼び出し失敗', { 
         url: apiUrl,
+        method: 'POST',
         status: response.status, 
         error: errorMessage 
       });
@@ -199,6 +213,9 @@ export async function updateSubscription(
     
     const data = await response.json();
     safeLog.info(LogCategory.API, 'サブスクリプション更新API呼び出し成功', { 
+      url: apiUrl,
+      method: 'POST',
+      status: response.status,
       plan: data.plan 
     });
     
@@ -209,9 +226,9 @@ export async function updateSubscription(
     };
   } catch (error: any) {
     const errorMessage = error.message || '不明なエラー';
-    const apiUrl = `${getApiUrl()}/subscription/update`;
     safeLog.error(LogCategory.API, 'サブスクリプション更新API呼び出しエラー', { 
       url: apiUrl,
+      method: 'POST',
       error: errorMessage 
     });
     timer();
@@ -225,4 +242,5 @@ export async function updateSubscription(
     };
   }
 }
+
 

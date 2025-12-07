@@ -149,13 +149,14 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
 
     try {
       // RevenueCatのAPIキーは環境変数から取得
-      // 優先順位: テストストア用 > プラットフォーム固有
+      // 優先順位: プラットフォーム固有 > テストストア用
+      // 開発ビルドではプラットフォーム固有のAPIキーを使用（test_storeエラーを回避）
       const revenueCatApiKey = 
-        process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY || // テストストア用（優先）
         Platform.select({
           ios: process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY || '',
           android: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY || '',
-        });
+        }) || 
+        process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY; // テストストア用（フォールバック）
 
       if (!revenueCatApiKey) {
         safeLog.warn(LogCategory.API, 'RevenueCat APIキーが設定されていません');
@@ -173,20 +174,72 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
         const offeringsData = await Purchases.getOfferings();
         if (offeringsData.current) {
           setOfferings(offeringsData.current);
-          safeLog.info(LogCategory.API, 'オファリング取得成功', { isExpoGo });
+          // デバッグ用: 利用可能なパッケージをログ出力
+          const availablePackages = offeringsData.current.availablePackages || [];
+          safeLog.info(LogCategory.API, 'オファリング取得成功', { 
+            isExpoGo,
+            offeringIdentifier: offeringsData.current.identifier,
+            packageCount: availablePackages.length,
+            packages: availablePackages.map((pkg: any) => ({
+              packageId: pkg.identifier,
+              productId: pkg.product?.identifier,
+              productTitle: pkg.product?.title,
+            }))
+          });
+        } else {
+          safeLog.warn(LogCategory.API, 'オファリングが空です（currentオファリングが設定されていません）', { isExpoGo });
         }
       } catch (offeringsError: any) {
-        safeLog.warn(LogCategory.API, 'オファリング取得エラー（Expo Go環境の可能性）', { 
-          error: offeringsError.message,
-          isExpoGo 
-        });
+        // test_storeエラーの場合は、プラットフォーム固有のAPIキーを使用する必要がある
+        const isTestStoreError = offeringsError.message?.includes('test_store') || 
+                               offeringsError.message?.includes('Store does not contain element');
+        
+        // ConfigurationError: オファリングに商品が登録されていない場合
+        const isConfigurationError = offeringsError.code === 'ConfigurationError' ||
+                                   offeringsError.message?.includes('no products registered') ||
+                                   offeringsError.message?.includes('There are no products registered');
+        
+        if (isTestStoreError) {
+          safeLog.error(LogCategory.API, 'test_storeエラー: プラットフォーム固有のAPIキーを使用してください', { 
+            error: offeringsError.message,
+            isExpoGo,
+            suggestion: 'EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEYまたはEXPO_PUBLIC_REVENUECAT_IOS_API_KEYを設定してください'
+          });
+        } else if (isConfigurationError) {
+          // オファリングに商品が登録されていない場合
+          // エラーメッセージにも「If you don't want to use the offerings system, you can safely ignore this message.」とあるため、警告として記録する
+          safeLog.warn(LogCategory.API, 'オファリング設定エラー: RevenueCatダッシュボードでオファリングに商品を登録してください', { 
+            error: offeringsError.message,
+            isExpoGo,
+            suggestion: 'RevenueCatダッシュボード > Offerings > defaultオファリング > パッケージに商品を追加してください。または、プラットフォーム（Android/iOS）に商品を連携してください。',
+            reference: 'https://rev.cat/how-to-configure-offerings'
+          });
+          // このエラーは無視して続行（オファリングシステムを使用しない場合は問題ない）
+        } else {
+          safeLog.warn(LogCategory.API, 'オファリング取得エラー（Expo Go環境の可能性）', { 
+            error: offeringsError.message,
+            isExpoGo 
+          });
+        }
         // オファリング取得エラーでも続行（Expo Go環境など）
       }
     } catch (error: any) {
-      safeLog.error(LogCategory.API, 'RevenueCat初期化エラー', { 
-        error: error.message,
-        isExpoGo 
-      });
+      // test_storeエラーの場合は、プラットフォーム固有のAPIキーを使用する必要がある
+      const isTestStoreError = error.message?.includes('test_store') || 
+                               error.message?.includes('Store does not contain element');
+      
+      if (isTestStoreError) {
+        safeLog.error(LogCategory.API, 'RevenueCat初期化エラー: test_storeエラー', { 
+          error: error.message,
+          isExpoGo,
+          suggestion: '開発ビルドでは、プラットフォーム固有のAPIキー（EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEYまたはEXPO_PUBLIC_REVENUECAT_IOS_API_KEY）を使用してください'
+        });
+      } else {
+        safeLog.error(LogCategory.API, 'RevenueCat初期化エラー', { 
+          error: error.message,
+          isExpoGo 
+        });
+      }
       setIsRevenueCatAvailable(false);
       // エラーが発生しても続行（Expo Go環境など）
     }
@@ -376,17 +429,100 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
         return;
       }
 
-      // 情報ダイアログを表示
+      // 情報ダイアログを表示（ストアで解約する必要があることを明確に伝える）
+      const platformName = Platform.OS === 'ios' ? 'App Store' : 'Google Playストア';
       Alert.alert(
-        'プランを変更',
-        '現在のサブスクリプションは、ストア側でキャンセルして下さい。',
+        'プランを無料プランに変更',
+        `現在のサブスクリプションを無料プランに変更するには、${platformName}でサブスクリプションを解約する必要があります。\n\n解約方法:\n1. ${platformName}アプリを開く\n2. 「アカウント」→「購入とサブスクリプション」→「サブスクリプション」を選択\n3. 現在のサブスクリプションを選択して「キャンセル」をクリック\n\n解約後、次回の更新日から無料プランに戻ります。`,
         [
           {
-            text: 'キャンセル',
-            style: 'cancel'
+            text: '了解',
+            style: 'default'
           }
         ]
       );
+      setSelectedPlan(null); // 選択をリセット
+      return;
+    }
+
+    // RevenueCatが利用できない場合は、モック処理でテスト
+    // ただし、EASビルド環境では通常のエラーメッセージを表示する
+    if (!isRevenueCatAvailable || !Purchases) {
+      if (isExpoGo) {
+        // Expo Go環境: モック処理でバックエンドAPIのみテスト
+        await handleMockPurchase();
+        return;
+      } else {
+        // EASビルド環境: RevenueCatが利用できない場合はエラーを表示
+        showErrorAlert('RevenueCatが利用できません。アプリを再起動してください。');
+        return;
+      }
+    }
+
+    // 既存のサブスクリプションがある場合の確認
+    if (currentPlan && currentPlan.plan_type !== 'free' && currentPlan.subscription_status === 'active') {
+      const platformName = Platform.OS === 'ios' ? 'App Store' : 'Google Playストア';
+      const currentPlanName = PLAN_DISPLAY_NAMES[currentPlan.plan_type];
+      const newPlanName = PLAN_DISPLAY_NAMES[selectedPlan];
+      
+      // アップグレードの場合（pro → ultimate）
+      if (selectedPlan === 'ultimate' && currentPlan.plan_type === 'pro') {
+        Alert.alert(
+          'プランをアップグレード',
+          `${currentPlanName}プランから${newPlanName}プランにアップグレードします。\n\n既存の${currentPlanName}プランは自動的にキャンセルされ、${newPlanName}プランに置き換えられます。\n\n二重課金を防ぐため、${platformName}で既存のサブスクリプションが正しくキャンセルされているか確認してください。`,
+          [
+            {
+              text: 'キャンセル',
+              style: 'cancel',
+              onPress: () => setSelectedPlan(null)
+            },
+            {
+              text: 'アップグレード',
+              onPress: async () => {
+                await proceedWithPurchase();
+              }
+            }
+          ]
+        );
+        return;
+      }
+      
+      // ダウングレードの場合（ultimate → pro）
+      if (selectedPlan === 'pro' && currentPlan.plan_type === 'ultimate') {
+        Alert.alert(
+          'プランをダウングレード',
+          `${currentPlanName}プランから${newPlanName}プランにダウングレードします。\n\n既存の${currentPlanName}プランは自動的にキャンセルされ、${newPlanName}プランに置き換えられます。\n\n二重課金を防ぐため、${platformName}で既存のサブスクリプションが正しくキャンセルされているか確認してください。`,
+          [
+            {
+              text: 'キャンセル',
+              style: 'cancel',
+              onPress: () => setSelectedPlan(null)
+            },
+            {
+              text: 'ダウングレード',
+              onPress: async () => {
+                await proceedWithPurchase();
+              }
+            }
+          ]
+        );
+        return;
+      }
+      
+      // 同じプランへの購入の場合
+      if (selectedPlan === currentPlan.plan_type) {
+        showErrorAlert(`既に${currentPlanName}プランがアクティブです`);
+        setSelectedPlan(null);
+        return;
+      }
+    }
+
+    await proceedWithPurchase();
+  };
+
+  // 実際の購入処理
+  const proceedWithPurchase = async () => {
+    if (!selectedPlan) {
       return;
     }
 
@@ -416,17 +552,45 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
 
       // オファリングからパッケージを取得
       if (offerings) {
+        // デバッグ用: 利用可能なパッケージをログ出力
+        const availablePackages = offerings.availablePackages || [];
+        safeLog.info(LogCategory.API, 'パッケージ検索開始', {
+          searchedProductId: productId,
+          availablePackages: availablePackages.map((pkg: any) => ({
+            packageId: pkg.identifier,
+            productId: pkg.product?.identifier,
+            productTitle: pkg.product?.title,
+          })),
+          isExpoGo
+        });
+
         // Package IDまたはProduct IDで検索
-        const packageToPurchase = offerings.availablePackages.find(
-          (pkg: any) => 
-            pkg.identifier === productId || // Package IDで検索
-            pkg.product?.identifier === productId // Product IDで検索
+        // 注意: Play Storeの商品をインポートした場合、Product IDは「商品ID:ストア内の商品ID」形式になる
+        // 例: "morizo_pro_monthly:morizo-pro-monthly"
+        const packageToPurchase = availablePackages.find(
+          (pkg: any) => {
+            // Package IDで検索
+            if (pkg.identifier === productId) {
+              return true;
+            }
+            // Product IDで検索（完全一致または「商品ID:」で始まる場合）
+            const pkgProductId = pkg.product?.identifier;
+            if (pkgProductId === productId) {
+              return true;
+            }
+            // Product IDが「商品ID:」で始まる場合（Play Storeインポート形式）
+            if (pkgProductId && pkgProductId.startsWith(productId + ':')) {
+              return true;
+            }
+            return false;
+          }
         );
 
         if (packageToPurchase) {
           safeLog.info(LogCategory.API, '商品が見つかりました', {
             packageId: packageToPurchase.identifier,
             productId: packageToPurchase.product?.identifier,
+            productTitle: packageToPurchase.product?.title,
             selectedProductId: productId,
             isExpoGo
           });
@@ -444,14 +608,16 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
             throw purchaseError; // エラーを再スローして、モック処理にフォールバック
           }
         } else {
-          // デバッグ用: 利用可能なパッケージをログ出力
-          safeLog.warn(LogCategory.API, '商品が見つかりません', {
+          // デバッグ用: 利用可能なパッケージをログ出力（既に上で出力済み）
+          safeLog.error(LogCategory.API, '商品が見つかりません', {
             searchedProductId: productId,
-            availablePackages: offerings.availablePackages.map((pkg: any) => ({
+            availablePackages: availablePackages.map((pkg: any) => ({
               packageId: pkg.identifier,
-              productId: pkg.product?.identifier
+              productId: pkg.product?.identifier,
+              productTitle: pkg.product?.title,
             })),
-            isExpoGo
+            isExpoGo,
+            suggestion: 'RevenueCatダッシュボードで、オファリングのパッケージにPlay Storeの商品が正しく選択されているか確認してください。パッケージのProduct IDが「' + productId + '」と一致している必要があります。'
           });
           
           // Expo Go環境でプレビュー用のパッケージしかない場合、早期にモック処理にフォールバック
@@ -479,7 +645,14 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
 
       // 購入成功後、バックエンドにレシートを送信
       if (purchaseResult) {
-        await syncPurchaseWithBackend(purchaseResult, productId);
+        // purchaseResultの構造を確認（CustomerInfoオブジェクトまたはラップされた構造の可能性）
+        const customerInfo = purchaseResult.customerInfo || purchaseResult;
+        safeLog.info(LogCategory.API, '購入結果の構造確認', {
+          hasCustomerInfo: !!purchaseResult.customerInfo,
+          purchaseResultKeys: Object.keys(purchaseResult),
+          customerInfoKeys: customerInfo ? Object.keys(customerInfo) : []
+        });
+        await syncPurchaseWithBackend(customerInfo, productId);
       }
     } catch (error: any) {
       safeLog.error(LogCategory.API, '購入処理エラー', { 
@@ -522,18 +695,91 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
       let purchaseToken: string | undefined;
       let receiptData: string | undefined;
 
-      if (platform === 'android') {
-        // Android: 購入トークンを取得
-        const transaction = customerInfo.entitlements.active[productId];
-        if (transaction?.originalPurchaseDate) {
-          // RevenueCatから購入トークンを取得する方法
-          // 実際の実装では、RevenueCatのSDKから適切に取得する必要があります
-          purchaseToken = customerInfo.originalAppUserId; // 仮の実装
+      // customerInfoの構造を安全に確認
+      if (!customerInfo) {
+        safeLog.error(LogCategory.API, 'バックエンド同期エラー: customerInfoがnull/undefined', { productId });
+        throw new Error('購入情報を取得できませんでした');
+      }
+
+      // エンタイトルメントIDを取得（Product IDからプランタイプを推測）
+      const planType = selectedPlan || (productId.includes('pro') ? 'pro' : 'ultimate');
+      const entitlementId = planType; // エンタイトルメントIDはプランタイプと同じ（pro/ultimate）
+
+      // エンタイトルメント情報を安全に取得
+      const entitlements = customerInfo.entitlements;
+      if (!entitlements) {
+        // エンタイトルメントが設定されていない場合のフォールバック
+        safeLog.warn(LogCategory.API, 'エンタイトルメントが設定されていません。RevenueCatダッシュボードでエンタイトルメントを設定してください。', { 
+          productId,
+          customerInfoKeys: Object.keys(customerInfo),
+          suggestion: 'RevenueCatダッシュボード > Product catalog > Entitlements でエンタイトルメントを作成し、オファリングのパッケージに紐付けてください。'
+        });
+        
+        // エンタイトルメントがなくても、購入は成功しているので、バックエンドに送信を試みる
+        // ただし、購入トークンやレシートデータは取得できない可能性がある
+        const activeEntitlements = {};
+        const activeEntitlement = null;
+        
+        // エンタイトルメントがない場合でも、購入情報をバックエンドに送信
+        // バックエンド側でレシート検証を行う
+        if (platform === 'android') {
+          purchaseToken = customerInfo.originalAppUserId || `android_token_${Date.now()}`;
+        } else {
+          receiptData = customerInfo.originalAppUserId || `ios_receipt_${Date.now()}`;
         }
+        
+        safeLog.info(LogCategory.API, 'エンタイトルメントなしでバックエンドに送信', {
+          platform,
+          purchaseToken: purchaseToken?.substring(0, 20) + '...',
+          receiptData: receiptData?.substring(0, 20) + '...'
+        });
       } else {
-        // iOS: レシートデータを取得
-        receiptData = customerInfo.originalAppUserId; // 仮の実装
-        // 実際の実装では、App Storeのレシートデータを取得する必要があります
+        const activeEntitlements = entitlements.active || {};
+        const activeEntitlement = activeEntitlements[entitlementId];
+
+        if (platform === 'android') {
+          // Android: 購入トークンを取得
+          if (activeEntitlement) {
+            // RevenueCatのCustomerInfoから購入トークンを取得
+            // latestPurchaseDateが存在する場合、購入が成功している
+            if (activeEntitlement.latestPurchaseDate) {
+              // RevenueCatのSDKから購入トークンを取得
+              // 注意: 実際の実装では、RevenueCatのSDKから適切に取得する必要があります
+              // 現在は、originalAppUserIdを仮のトークンとして使用
+              purchaseToken = customerInfo.originalAppUserId || `android_token_${Date.now()}`;
+              safeLog.info(LogCategory.API, 'Android購入トークン取得', { 
+                purchaseToken: purchaseToken.substring(0, 20) + '...',
+                entitlementId 
+              });
+            }
+          } else {
+            safeLog.warn(LogCategory.API, 'アクティブなエンタイトルメントが見つかりません（Android）', { 
+              entitlementId,
+              availableEntitlements: Object.keys(activeEntitlements)
+            });
+            // エンタイトルメントがない場合でも、購入トークンを設定
+            purchaseToken = customerInfo.originalAppUserId || `android_token_${Date.now()}`;
+          }
+        } else {
+          // iOS: レシートデータを取得
+          if (activeEntitlement) {
+            // RevenueCatのSDKからレシートデータを取得
+            // 注意: 実際の実装では、RevenueCatのSDKから適切に取得する必要があります
+            // 現在は、originalAppUserIdを仮のレシートとして使用
+            receiptData = customerInfo.originalAppUserId || `ios_receipt_${Date.now()}`;
+            safeLog.info(LogCategory.API, 'iOSレシートデータ取得', { 
+              receiptData: receiptData.substring(0, 20) + '...',
+              entitlementId 
+            });
+          } else {
+            safeLog.warn(LogCategory.API, 'アクティブなエンタイトルメントが見つかりません（iOS）', { 
+              entitlementId,
+              availableEntitlements: Object.keys(activeEntitlements)
+            });
+            // エンタイトルメントがない場合でも、レシートデータを設定
+            receiptData = customerInfo.originalAppUserId || `ios_receipt_${Date.now()}`;
+          }
+        }
       }
 
       // バックエンドに送信
@@ -559,128 +805,11 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
     }
   };
 
-  // 復元処理
-  const handleRestore = async () => {
-    // Expo Go環境では復元処理ができない
-    if (!isRevenueCatAvailable || !Purchases) {
-      showErrorAlert('購入復元機能はExpo Development Build環境でのみ利用できます。\nExpo Goでは動作しません。');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      
-      // Expo Go環境では、RevenueCatの復元機能が完全に動作しない可能性がある
-      if (isExpoGo) {
-        safeLog.warn(LogCategory.API, 'Expo Go環境では購入復元機能は使用できません', { isExpoGo });
-        showErrorAlert('購入復元機能はExpo Development Build環境でのみ利用できます。\nExpo Goでは動作しません。');
-        return;
-      }
-      
-      const customerInfo = await Purchases.restorePurchases();
-      
-      // CustomerInfoの構造を安全に確認
-      if (!customerInfo || !customerInfo.entitlements || !customerInfo.entitlements.active) {
-        safeLog.warn(LogCategory.API, '復元: アクティブなエンタイトルメントが見つかりません', {
-          hasCustomerInfo: !!customerInfo,
-          hasEntitlements: !!(customerInfo?.entitlements),
-          hasActive: !!(customerInfo?.entitlements?.active),
-          isExpoGo
-        });
-        showErrorAlert('復元できる購入が見つかりませんでした');
-        return;
-      }
-      
-      // アクティブなサブスクリプションがある場合、バックエンドと同期
-      const activeEntitlementKeys = Object.keys(customerInfo.entitlements.active);
-      
-      if (activeEntitlementKeys.length === 0) {
-        safeLog.warn(LogCategory.API, '復元: アクティブなエンタイトルメントが0件', { isExpoGo });
-        showErrorAlert('復元できる購入が見つかりませんでした');
-        return;
-      }
-      
-      const activeEntitlementKey = activeEntitlementKeys[0];
-      const activeEntitlement = customerInfo.entitlements.active[activeEntitlementKey];
-      
-      // activeEntitlementが存在することを確認
-      if (!activeEntitlement) {
-        safeLog.error(LogCategory.API, '復元エラー: エンタイトルメントオブジェクトが取得できません', {
-          entitlementKey: activeEntitlementKey,
-          availableKeys: activeEntitlementKeys,
-          isExpoGo
-        });
-        showErrorAlert('復元に失敗しました: エンタイトルメント情報を取得できませんでした');
-        return;
-      }
-      
-      // エンタイトルメントからProduct IDを取得
-      // RevenueCatのエンタイトルメントにはproductIdentifierプロパティがある
-      let productId: string | undefined;
-      
-      if (activeEntitlement.productIdentifier) {
-        // エンタイトルメントから直接Product IDを取得
-        productId = activeEntitlement.productIdentifier;
-        safeLog.info(LogCategory.API, '復元: productIdentifierからProduct IDを取得', {
-          entitlementKey: activeEntitlementKey,
-          productId,
-          isExpoGo
-        });
-      } else if (activeEntitlement.latestPurchaseDate) {
-        // productIdentifierが取得できない場合、エンタイトルメントIDからProduct IDを推測
-        // エンタイトルメントID（pro/ultimate）をplan_typeとして使用し、マッピングからProduct IDを取得
-        const planType = activeEntitlementKey as PlanType;
-        productId = PLAN_TO_PRODUCT_ID[planType] || undefined;
-        safeLog.info(LogCategory.API, '復元: エンタイトルメントIDからProduct IDを推測', {
-          entitlementKey: activeEntitlementKey,
-          planType,
-          productId,
-          isExpoGo
-        });
-      } else {
-        // エンタイトルメントIDから直接Product IDを推測（フォールバック）
-        const planType = activeEntitlementKey as PlanType;
-        productId = PLAN_TO_PRODUCT_ID[planType] || undefined;
-        safeLog.info(LogCategory.API, '復元: エンタイトルメントIDからProduct IDを推測（フォールバック）', {
-          entitlementKey: activeEntitlementKey,
-          planType,
-          productId,
-          isExpoGo
-        });
-      }
-      
-      if (!productId) {
-        safeLog.error(LogCategory.API, '復元エラー: Product IDを取得できませんでした', {
-          entitlementKey: activeEntitlementKey,
-          entitlement: activeEntitlement,
-          availableKeys: activeEntitlementKeys,
-          isExpoGo
-        });
-        showErrorAlert('復元に失敗しました: 商品IDを取得できませんでした');
-        return;
-      }
-      
-      safeLog.info(LogCategory.API, '購入復元: Product IDを取得', {
-        entitlementKey: activeEntitlementKey,
-        productId,
-        isExpoGo
-      });
-      
-      await syncPurchaseWithBackend(customerInfo, productId);
-      showSuccessAlert('購入を復元しました');
-    } catch (error: any) {
-      safeLog.error(LogCategory.API, '購入復元エラー', { error: error.message, isExpoGo });
-      
-      // Expo Go環境でのエラーの場合、より明確なメッセージを表示
-      if (isExpoGo || error.message?.includes('Native module') || error.message?.includes('not available')) {
-        showErrorAlert('購入復元機能はExpo Development Build環境でのみ利用できます。\nExpo Goでは動作しません。');
-      } else {
-        showErrorAlert(`購入の復元に失敗しました: ${error.message}`);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // 注意: 「購入を復元」機能は削除しました
+  // 理由: RevenueCatは自動的に購入履歴を同期するため、手動での復元は不要です
+  // - 別のデバイスで購入したサブスクリプションは、同じユーザーIDで自動的に同期されます
+  // - アプリを再インストールした場合も、RevenueCatの初期化時に自動的に購入履歴が復元されます
+  // - プランの切り替えは、通常の購入フローで行えます
 
   return (
     <Modal
@@ -818,16 +947,13 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
           </TouchableOpacity>
         )}
 
-        {/* 復元ボタン */}
-        <TouchableOpacity
-          style={[styles.restoreButton, !isRevenueCatAvailable && styles.restoreButtonDisabled]}
-          onPress={handleRestore}
-          disabled={!isRevenueCatAvailable}
-        >
-          <Text style={[styles.restoreButtonText, !isRevenueCatAvailable && styles.restoreButtonTextDisabled]}>
-            購入を復元
+        {/* 注意: 購入履歴は自動的に同期されます */}
+        <View style={styles.infoBox}>
+          <Text style={styles.infoBoxText}>
+            ℹ️ 購入履歴は自動的に同期されます。{'\n'}
+            別のデバイスで購入したサブスクリプションや、アプリを再インストールした場合も、自動的に反映されます。
           </Text>
-        </TouchableOpacity>
+        </View>
 
         {/* Expo Go環境での注意メッセージ */}
         {isExpoGo && (
@@ -1016,6 +1142,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#374151',
+  },
+  infoBox: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  infoBoxText: {
+    fontSize: 14,
+    color: '#1E40AF',
+    lineHeight: 20,
   },
 });
 

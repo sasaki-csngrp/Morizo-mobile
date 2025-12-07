@@ -4,8 +4,8 @@
 
 このドキュメントは、Morizo Mobileアプリの収益化機能実装における全体の進捗を追跡するための統合ロードマップです。
 
-**最終更新**: 2025年1月29日  
-**バージョン**: 1.1  
+**最終更新**: 2025年12月7日  
+**バージョン**: 1.2  
 **対象**: Morizo-mobile（モバイルアプリ）、Morizo-aiv2（バックエンド）
 
 ---
@@ -20,11 +20,11 @@
 | フェーズ3: モバイルアプリIAP連携 | ✅ 完了 | 100% |
 | フェーズ4: RevenueCat設定 | ✅ 完了 | 100% |
 | フェーズ5: ストア設定 | ⏳ 未着手 | 0% |
-| フェーズ6: サンドボックステスト | 🔄 準備完了 | 20% |
+| フェーズ6: サンドボックステスト | 🔄 進行中 | 60% |
 | フェーズ7: 日次リセット機能 | ⏳ 未着手 | 0% |
 | フェーズ8: 本番環境リリース | ⏳ 未着手 | 0% |
 
-**全体進捗**: 約 60% 完了
+**全体進捗**: 約 65% 完了
 
 ---
 
@@ -488,19 +488,33 @@ iOSプラットフォームの場合も、同様の手順で商品を連携し�
 
 ---
 
-## フェーズ6: サンドボックステスト（準備完了 - テスト可能）
+## フェーズ6: サンドボックステスト（進行中 - 60%）
 
 **開発ビルドの作成方法**: 開発ビルドの作成・使用方法の詳細は、`docs/DEVELOPMENT_BUILD_GUIDE.md`を参照してください。
 
-### 6.1 RevenueCatテストストアでのテスト（現在テスト可能）
+### 6.1 RevenueCatテストストアでのテスト（開発ビルドでテスト完了）
 
-**現在の進捗状況**: テストストアでのテストに必要な準備は完了しています。
+**現在の進捗状況**: 開発ビルドでのRevenueCatでのサブスク購入まで実装完了。
 
 **準備完了項目**:
 - ✅ RevenueCatダッシュボードでの商品設定完了（テストストア）
 - ✅ テストストア用APIキー取得済み（`.env`に設定済み）
 - ✅ Entitlements設定済み（`pro`, `ultimate`）
 - ✅ Offerings設定済み（`default`オファリング、`pro_monthly`, `ultimate_monthly`パッケージ）
+- ✅ プラットフォーム固有のAPIキー取得済み（Android用/iOS用）
+- ✅ Play Storeの商品をRevenueCatにインポート済み
+- ✅ オファリングのパッケージにPlay Storeの商品を設定済み
+
+**テスト完了項目**:
+- ✅ 開発ビルドの作成
+- ✅ RevenueCat SDKの初期化確認
+- ✅ オファリング取得のテスト
+- ✅ 購入フローのテスト（PROプランの購入成功を確認）
+- ✅ エンタイトルメントの確認
+- ✅ バックエンドAPIとの同期確認
+- ✅ ログにAPIパス（URL）を追加（デバッグ改善）
+
+**完了日**: 2025年12月7日
 
 **テスト可能な内容**:
 
@@ -514,21 +528,19 @@ iOSプラットフォームの場合も、同様の手順で商品を連携し�
 
 **注意**: Expo Go環境では、`react-native-purchases`がネイティブモジュールのため、通常は動作しません。その場合、`isRevenueCatAvailable`が`false`になり、バックエンドAPI連携のみ動作します。
 
-#### 開発ビルド環境でのテスト（推奨）
+#### 開発ビルド環境でのテスト（完了）
 
 **開発ビルドの詳細ガイド**: 開発ビルドの作成・使用方法の詳細は、`docs/DEVELOPMENT_BUILD_GUIDE.md`の「クイックスタート」セクションを参照してください。
 
-**必要な準備**:
-- [ ] 開発ビルドの作成（`eas build --profile development --platform ios/android`）
-- [ ] テストストア用APIキーが`.env`に設定されていることを確認
-
-**テスト可能な内容**:
-- [ ] RevenueCat SDKの初期化確認
-- [ ] オファリング取得のテスト
-- [ ] 購入フローのテスト（テストストアでは実際の課金は発生しない）
-- [ ] エンタイトルメントの確認
-- [ ] バックエンドAPIとの同期確認
-- [ ] エラーハンドリングのテスト
+**完了したテスト**:
+- [x] 開発ビルドの作成（`eas build --profile development --platform android`）
+- [x] テストストア用APIキーが`.env`に設定されていることを確認
+- [x] RevenueCat SDKの初期化確認
+- [x] オファリング取得のテスト
+- [x] 購入フローのテスト（PROプランの購入成功を確認）
+- [x] エンタイトルメントの確認
+- [x] バックエンドAPIとの同期確認
+- [x] エラーハンドリングのテスト
 
 **テスト手順**:
 
@@ -672,37 +684,44 @@ iOSプラットフォームの場合も、同様の手順で商品を連携し�
    - **解決方法**: `SubscriptionScreen.tsx`のAPIキー優先順位を変更し、プラットフォーム固有のAPIキーを優先的に使用するように修正
    - **対応日**: 2025年1月29日
 
-4. **RevenueCat ConfigurationError（進行中）**
+4. **RevenueCat ConfigurationError（解決済み）**
    - **問題**: 開発ビルドでプラットフォーム固有のAPIキー（Android用）を使用した際に、オファリング取得エラーが発生
    - **エラーメッセージ**: `PurchasesError(code=ConfigurationError, underlyingErrorMessage=There are no products registered in the RevenueCat dashboard for your offerings.)`
-   - **現在の状況**: 
-     - ✅ Product CatalogでPlay Storeの商品をインポート済み
-     - ❌ オファリングのパッケージにPlay Storeの商品を選択する設定ができない
-   - **対応状況**:
-     1. ✅ エラーハンドリングを改善し、`ConfigurationError`を適切に処理するように修正
-     2. ✅ RevenueCatダッシュボードで、プラットフォーム（Android/iOS）に商品を連携し、オファリングに追加する手順をドキュメント化（4.5セクション）
-     3. ⏳ オファリングのパッケージ設定で問題が発生中（次のセッションで対応）
-   - **引き継ぎドキュメント**: `docs/MONETIZATION_HANDOVER.md`を参照
+   - **解決方法**: 
+     - ✅ Product CatalogでPlay Storeの商品をインポート
+     - ✅ オファリングのパッケージにPlay Storeの商品を設定
+     - ✅ プラットフォーム固有のAPIキーを使用するように修正
+   - **対応完了日**: 2025年12月7日
+   - **結果**: 開発ビルドでのRevenueCatでのサブスク購入が成功
+
+5. **二重課金の問題（未解決）**
+   - **問題**: PROプランからULTIMATEプランにアップグレードした場合、両方のサブスクリプションが有効なままになる
+   - **確認済み**: Google Playストアの「定期購入」画面で、PROとULTIMATEの両方が表示されていることを確認
+   - **原因**: `pro`と`ultimate`は別々のエンタイトルメントとして設定されているため、RevenueCatでは異なるエンタイトルメント間のアップグレード時に既存のサブスクリプションが自動的にキャンセルされない
+   - **調査結果**: 
+     - RevenueCatのCustomerInfoから`purchase_token`を取得することはできない
+     - バックエンド側でも`purchase_token`を取得できない
+     - 実装不可能と判断し、cancel関連の実装を削除
+   - **現在の状況**: 未解決。将来的な対応方法を検討する必要がある
+   - **調査ドキュメント**: `docs/MONETIZATION_DOUBLE_BILLING_INVESTIGATION.md`を参照
    - **対応開始日**: 2025年12月7日
 
 ### 次のアクション（優先順位順）
 
-1. **RevenueCatダッシュボードでの商品設定**（優先度: 高）
-   - Product Catalog、Entitlements、Offeringsの設定
-   - 参考: `docs/archive/monetization/REVENUECAT_INITIAL_TEST_PLAN.md`
-
-2. **iOS/Androidプラットフォームの追加**（優先度: 高）
-   - RevenueCatでプラットフォームを追加
-   - 認証情報の設定
-   - プラットフォーム固有のAPIキー取得
-   - 参考: 
-     - `docs/archive/monetization/IOS_APP_STORE_CREDENTIALS_SETUP.md`
-     - `docs/archive/monetization/ANDROID_PLAY_SERVICE_CREDENTIALS_SETUP.md`
-
-3. **ストア設定**（優先度: 中）
+1. **ストア設定**（優先度: 高）
    - Google Play Consoleでの商品登録
    - App Store Connectでの商品登録
    - 参考: `docs/archive/monetization/STORE_SETUP_GUIDE.md`
+
+2. **ストアサンドボックス環境でのテスト**（優先度: 高）
+   - Androidサンドボックステスト
+   - iOSサンドボックステスト
+   - レシート検証の確認
+
+3. **二重課金問題の対応検討**（優先度: 中）
+   - 将来的な対応方法の検討
+   - ユーザーへの案内方法の検討
+   - 参考: `docs/MONETIZATION_DOUBLE_BILLING_INVESTIGATION.md`
 
 4. **レシート検証機能の実装検討**（優先度: 低）
    - 本番環境リリース前に実装の必要性を検討
@@ -712,6 +731,9 @@ iOSプラットフォームの場合も、同様の手順で商品を連携し�
 **完了済み**:
 - ✅ データベーススキーマ拡張（フェーズ1）
 - ✅ バックエンドAPI実装（フェーズ2 - 90%完了）
+- ✅ モバイルアプリIAP連携（フェーズ3）
+- ✅ RevenueCat設定（フェーズ4）
+- ✅ 開発ビルドでのRevenueCatでのサブスク購入テスト（フェーズ6 - 一部完了）
 
 ---
 
@@ -751,6 +773,6 @@ iOSプラットフォームの場合も、同様の手順で商品を連携し�
 
 ---
 
-**最終更新**: 2025年1月29日  
+**最終更新**: 2025年12月7日  
 **作成者**: AIエージェント協働チーム
 

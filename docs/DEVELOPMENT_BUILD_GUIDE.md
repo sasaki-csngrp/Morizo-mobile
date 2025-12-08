@@ -47,6 +47,8 @@ Expo Go  ←  開発ビルド  →  ストア提出用ビルド
 
 ## ステップ1: 開発ビルドの作成（初回のみ）
 
+### Android用
+
 ```bash
 cd /app/Morizo-mobile
 eas build --profile development --platform android
@@ -55,11 +57,35 @@ eas build --profile development --platform android
 **ビルド時間**: 通常10-20分  
 **ビルド完了後**: APKファイルをダウンロード
 
+### iOS用
+
+```bash
+cd /app/Morizo-mobile
+eas build --profile development --platform ios
+```
+
+**ビルド時間**: 通常10-20分  
+**ビルド完了後**: IPAファイルをダウンロード
+
+**注意**: iOSビルドには、Apple Developerアカウント（年間$99）が必要です。
+
 ## ステップ2: 開発ビルドを実機にインストール
+
+### Androidの場合
 
 1. **APKファイルを実機に転送**（USB、クラウド、直接ダウンロードなど）
 2. **実機でAPKファイルをタップしてインストール**
 3. **「不明なソースからのアプリ」を許可**（必要に応じて）
+
+### iOSの場合
+
+1. **IPAファイルを実機に転送**（USB、クラウド、直接ダウンロードなど）
+2. **XcodeやApple Configuratorでインストール**
+   - Xcodeを使用する場合: Window → Devices and Simulators → デバイスを選択 → 「+」ボタンでIPAをインストール
+   - Apple Configuratorを使用する場合: デバイスを接続 → IPAファイルをドラッグ&ドロップ
+3. **実機の設定で開発者アプリを信頼**
+   - 設定 → 一般 → VPNとデバイス管理（または「プロファイルとデバイス管理」）
+   - 開発者アプリを選択 → 「信頼」をタップ
 
 ## ステップ3: 開発サーバーの起動
 
@@ -96,10 +122,26 @@ npx expo start
 
 ## 簡単な流れ（図解）
 
+### Androidの場合
+
 ```
 1. eas build --profile development --platform android
    ↓ (10-20分)
 2. APKをダウンロードして実機にインストール
+   ↓
+3. expo start (開発サーバー起動)
+   ↓
+4. 開発ビルドアプリでQRコードをスキャン
+   ↓
+5. ホットリロードで開発開始！
+```
+
+### iOSの場合
+
+```
+1. eas build --profile development --platform ios
+   ↓ (10-20分)
+2. IPAをダウンロードして実機にインストール（Xcodeなど使用）
    ↓
 3. expo start (開発サーバー起動)
    ↓
@@ -374,8 +416,10 @@ expo start
 
 ### ステップ1: 開発ビルドで開発・テスト（現在の段階）
 
+#### Androidの場合
+
 ```bash
-# 1. 開発ビルドの作成（初回のみ、APK/IPA形式で生成）
+# 1. 開発ビルドの作成（初回のみ、APK形式で生成）
 eas build --profile development --platform android
 
 # 2. 開発ビルドを実機にインストール
@@ -396,12 +440,38 @@ expo start
 # - バックエンドAPIとの統合テスト
 ```
 
+#### iOSの場合
+
+```bash
+# 1. 開発ビルドの作成（初回のみ、IPA形式で生成）
+eas build --profile development --platform ios
+
+# 2. 開発ビルドを実機にインストール
+# - ダウンロードしたIPAファイルをXcodeやApple Configuratorで実機にインストール
+# - 実機の設定で開発者アプリを信頼（設定 → 一般 → VPNとデバイス管理）
+
+# 3. 開発サーバーの起動
+expo start
+
+# 4. 開発ビルドアプリで接続
+# - QRコードをスキャン、またはURLを入力
+# - 開発サーバーに接続
+
+# 5. 開発開始
+# - コードを変更して保存
+# - 自動的にアプリに反映（ホットリロード）
+# - RevenueCatのテストストアで購入テスト（実機でのみ可能）
+# - バックエンドAPIとの統合テスト
+```
+
 **メリット**:
 - ✅ 開発効率が高い（ホットリロード）
 - ✅ RevenueCatのテストストアでテスト可能
 - ✅ ビルド回数を節約（コード変更時は再ビルド不要）
 
 ### ステップ2: プロダクションビルドで最終確認
+
+#### Androidの場合
 
 ```bash
 # プロダクションビルドの作成
@@ -412,15 +482,35 @@ eas build --platform android --profile production
 # - パフォーマンステスト
 ```
 
-**メリット**:
+#### iOSの場合
+
+```bash
+# プロダクションビルドの作成
+eas build --platform ios --profile production
+
+# ストア提出前の最終確認
+# - 本番環境での動作確認
+# - パフォーマンステスト
+```
+
+**メリット**（Android/iOS共通）:
 - ✅ ストア提出可能
 - ✅ 本番環境での動作確認
 
 ### ステップ3: ストア提出
 
+#### Androidの場合
+
 ```bash
-# ストアへの提出
+# Google Play Storeへの提出
 eas submit --platform android
+```
+
+#### iOSの場合
+
+```bash
+# App Store Connectへの提出
+eas submit --platform ios
 ```
 
 ---
@@ -459,20 +549,34 @@ eas submit --platform android
 
 ### ステップ1: 開発ビルドの作成（初回のみ）
 
+#### Androidの場合
+
 ```bash
 # EAS Build（クラウドビルド）で開発ビルドを作成
 eas build --profile development --platform android
 ```
 
-**重要なポイント**:
-- ✅ **EAS Build（クラウド）でビルド**（ローカルではない）
-- ✅ **ビルド回数はカウントされる**
-- ✅ **APK/IPA形式で生成される**（AAB形式ではない）
-- ⏱️ **ビルド時間**: 通常10-20分
+**ビルド完了後**:
+- EAS DashboardからAPKファイルをダウンロード
+- または、ビルド完了時にダウンロードリンクが提供される
+
+#### iOSの場合
+
+```bash
+# EAS Build（クラウドビルド）で開発ビルドを作成
+eas build --profile development --platform ios
+```
 
 **ビルド完了後**:
-- EAS DashboardからAPK/IPAをダウンロード
+- EAS DashboardからIPAファイルをダウンロード
 - または、ビルド完了時にダウンロードリンクが提供される
+
+**重要なポイント**（Android/iOS共通）:
+- ✅ **EAS Build（クラウド）でビルド**（ローカルではない）
+- ✅ **ビルド回数はカウントされる**
+- ✅ **AndroidはAPK形式、iOSはIPA形式で生成される**（AAB形式ではない）
+- ⏱️ **ビルド時間**: 通常10-20分
+- ⚠️ **iOSビルドにはApple Developerアカウント（年間$99）が必要**
 
 ### ステップ2: 開発ビルドを実機にインストール
 

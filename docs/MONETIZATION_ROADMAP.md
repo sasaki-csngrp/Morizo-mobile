@@ -19,12 +19,12 @@
 | フェーズ2: バックエンドAPI実装 | ✅ 完了 | 90% |
 | フェーズ3: モバイルアプリIAP連携 | ✅ 完了 | 100% |
 | フェーズ4: RevenueCat設定 | ✅ 完了 | 100% |
-| フェーズ5: ストア設定 | ⏳ 未着手 | 0% |
+| フェーズ5: ストア設定 | 🔄 進行中 | 75% |
 | フェーズ6: サンドボックステスト | 🔄 進行中 | 60% |
 | フェーズ7: 日次リセット機能 | ⏳ 未着手 | 0% |
 | フェーズ8: 本番環境リリース | ⏳ 未着手 | 0% |
 
-**全体進捗**: 約 65% 完了
+**全体進捗**: 約 72% 完了
 
 ---
 
@@ -452,18 +452,34 @@ iOSプラットフォームの場合も、同様の手順で商品を連携し�
 
 ---
 
-## フェーズ5: ストア設定（未着手）
+## フェーズ5: ストア設定（進行中 - 50%）
 
-### 5.1 Google Play Console設定
+### 5.1 Google Play Console設定（✅ 完了）
 
-- [ ] サブスクリプション商品の登録
-  - [ ] `morizo_pro_monthly` の登録
-  - [ ] `morizo_pro_yearly` の登録（オプション）
-  - [ ] `morizo_ultimate_monthly` の登録
-  - [ ] `morizo_ultimate_yearly` の登録（オプション）
-- [ ] テストアカウントの設定
-  - [ ] ライセンステスト用アカウントの追加
-  - [ ] テストデバイスの設定
+- [x] サブスクリプション商品の登録
+  - [x] `morizo_pro_monthly` の登録（2025年12月4日）
+  - [x] `morizo_pro_yearly` の登録（2025年12月4日）
+  - [x] `morizo_ultimate_monthly` の登録（2025年12月4日）
+  - [x] `morizo_ultimate_yearly` の登録（2025年12月4日）
+- [x] テストアカウントの設定
+  - [x] 内部テストトラックの設定（`Morizo_Closed_Alpha`）
+  - [x] テスターの追加（3名登録済み）
+  - [x] ウェブでのテスト参加方法の設定
+
+**完了日**: 
+- 商品登録: 2025年12月4日
+- テストアカウント設定: 2025年12月8日
+
+**登録済み商品**:
+- ✅ Morizo PRO (`morizo_pro_monthly`)
+- ✅ Morizo PRO（年額）(`morizo_pro_yearly`)
+- ✅ Morizo ULTIMATE (`morizo_ultimate_monthly`)
+- ✅ Morizo ULTIMATE（年額）(`morizo_ultimate_yearly`)
+
+**テスト設定**:
+- ✅ 内部テストトラック: `Morizo_Closed_Alpha`
+- ✅ テスター数: 3名
+- ✅ テスト参加方法: ウェブで参加可能
 
 **参考ドキュメント**: `docs/archive/monetization/STORE_SETUP_GUIDE.md` セクション1
 
@@ -694,37 +710,47 @@ iOSプラットフォームの場合も、同様の手順で商品を連携し�
    - **対応完了日**: 2025年12月7日
    - **結果**: 開発ビルドでのRevenueCatでのサブスク購入が成功
 
-5. **二重課金の問題（未解決）**
+5. **二重課金の問題（✅ 解決済み）**
    - **問題**: PROプランからULTIMATEプランにアップグレードした場合、両方のサブスクリプションが有効なままになる
    - **確認済み**: Google Playストアの「定期購入」画面で、PROとULTIMATEの両方が表示されていることを確認
    - **原因**: `pro`と`ultimate`は別々のエンタイトルメントとして設定されているため、RevenueCatでは異なるエンタイトルメント間のアップグレード時に既存のサブスクリプションが自動的にキャンセルされない
-   - **調査結果**: 
-     - RevenueCatのCustomerInfoから`purchase_token`を取得することはできない
-     - バックエンド側でも`purchase_token`を取得できない
-     - 実装不可能と判断し、cancel関連の実装を削除
-   - **現在の状況**: 未解決。将来的な対応方法を検討する必要がある
-   - **調査ドキュメント**: `docs/MONETIZATION_DOUBLE_BILLING_INVESTIGATION.md`を参照
-   - **対応開始日**: 2025年12月7日
+   - **解決方法**: `upgradeInfo`を使用して、Google Play Store APIに既存のサブスクリプションを置き換える指示を明示的に送信
+   - **実装内容**:
+     - `revenue-cat-client.ts`に`getCustomerInfo()`メソッドを追加
+     - `purchasePackage()`メソッドに`upgradeInfo`パラメータを追加
+     - `usePurchase.ts`でアップグレード/ダウングレード時に`upgradeInfo`を作成して渡す
+     - Androidの場合、`prorationMode`を`IMMEDIATE_AND_CHARGE`に設定
+   - **解決済み項目**:
+     - ✅ PRO→ULTIMATE（アップグレード）: 既存のPROサブスクリプションが自動的にキャンセルされ、ULTIMATEに置き換えられる
+     - ✅ ULTIMATE→PRO（ダウングレード）: 既存のULTIMATEサブスクリプションが自動的にキャンセルされ、PROに置き換えられる
+     - ✅ 二重課金の回避: Google Playストアで両方のサブスクリプションが表示される問題が解消
+   - **解決日**: 2025年12月7日
+   - **詳細ドキュメント**: `docs/MONETIZATION_DOUBLE_BILLING_INVESTIGATION.md`を参照
+   - **解決策の提供**: Google Gemini
 
-6. **ストア解約時の同期問題（未解決）**
+6. **ストア解約時の同期問題（✅ 解決済み）**
    - **問題**: ストア（Google Play / App Store）でサブスクリプションを解約した場合、`user_subscriptions`テーブルの`subscription_status`が更新されず、`'active'`のまま残る
    - **想定される動作**: ストアで解約した場合、`user_subscriptions`テーブルの`subscription_status`を`'cancelled'`または`'expired'`に更新する必要がある
-   - **原因**: 
-     - RevenueCatのWebhookが未設定、または未実装
-     - バックエンドでの定期的な同期処理が未実装
-     - アプリ起動時の状態確認処理が未実装
-   - **対応が必要**:
-     - RevenueCatのWebhookを設定し、解約イベントを受信して`user_subscriptions`を更新する
-     - または、アプリ起動時や定期的にRevenueCatからサブスクリプション状態を取得して同期する
-     - または、バックエンドで定期的にRevenueCat APIを呼び出して状態を同期する
-   - **現在の状況**: 未解決。本番環境リリース前に実装が必要
-   - **対応開始日**: 2025年12月7日
+   - **解決方法**: RevenueCat Webhookを実装し、解約イベント（EXPIRATION、CANCELLATION等）を受信して`user_subscriptions`テーブルを自動更新
+   - **実装内容**:
+     - バックエンドに`/api/revenuecat/webhook`エンドポイントを実装
+     - RevenueCat Webhookイベント（EXPIRATION、CANCELLATION等）を受信
+     - イベントタイプに応じて`user_subscriptions`テーブルの`subscription_status`を更新
+     - ログ出力による動作確認
+   - **動作確認済み**:
+     - ✅ EXPIRATIONイベントの受信と処理が正常に動作
+     - ✅ `user_subscriptions`テーブルの`subscription_status`が`expired`に更新されることを確認
+     - ✅ Webhook処理のログ出力が正常に記録されることを確認
+   - **解決日**: 2025年12月8日
+   - **参考ドキュメント**: `docs/archive/monetization/REVENUECAT_WEBHOOK_IMPLEMENTATION.md`
 
 ### 次のアクション（優先順位順）
 
 1. **ストア設定**（優先度: 高）
-   - Google Play Consoleでの商品登録
-   - App Store Connectでの商品登録
+   - ✅ Google Play Consoleでの商品登録（完了: 2025年12月4日）
+   - ✅ Google Play Consoleでのテストアカウント設定（完了: 2025年12月8日）
+   - [ ] App Store Connectでの商品登録
+   - [ ] App Store Connectでのサンドボックステスター設定
    - 参考: `docs/archive/monetization/STORE_SETUP_GUIDE.md`
 
 2. **ストアサンドボックス環境でのテスト**（優先度: 高）
@@ -732,16 +758,13 @@ iOSプラットフォームの場合も、同様の手順で商品を連携し�
    - iOSサンドボックステスト
    - レシート検証の確認
 
-3. **ストア解約時の同期処理の実装**（優先度: 高）
-   - RevenueCat Webhookの設定と実装
-   - または、アプリ起動時の状態確認処理の実装
-   - または、バックエンドでの定期的な同期処理の実装
-   - `user_subscriptions`テーブルの`subscription_status`を適切に更新する処理
+3. ~~**ストア解約時の同期処理の実装**~~（✅ 完了）
+   - ✅ 解決済み: RevenueCat Webhookを実装し、解約イベント（EXPIRATION、CANCELLATION等）を受信して`user_subscriptions`テーブルを自動更新
+   - ✅ EXPIRATIONイベントの受信と処理が正常に動作することを確認
    - 参考: `docs/archive/monetization/REVENUECAT_WEBHOOK_IMPLEMENTATION.md`
 
-4. **二重課金問題の対応検討**（優先度: 中）
-   - 将来的な対応方法の検討
-   - ユーザーへの案内方法の検討
+4. ~~**二重課金問題の対応検討**~~（✅ 完了）
+   - ✅ 解決済み: `upgradeInfo`を使用した実装により、アップグレード/ダウングレード時の二重課金問題を解決
    - 参考: `docs/MONETIZATION_DOUBLE_BILLING_INVESTIGATION.md`
 
 5. **レシート検証機能の実装検討**（優先度: 低）
@@ -797,4 +820,63 @@ iOSプラットフォームの場合も、同様の手順で商品を連携し�
 
 **最終更新**: 2025年12月7日  
 **作成者**: AIエージェント協働チーム
+
+---
+
+## 最近の更新履歴
+
+### 2025年12月8日: Google Play Console設定完了
+
+**完了内容**:
+- Google Play Consoleで4つのサブスクリプション商品を登録完了（2025年12月4日）
+- 内部テストトラック（`Morizo_Closed_Alpha`）を設定し、3名のテスターを登録（2025年12月8日）
+
+**登録済み商品**:
+- `morizo_pro_monthly` - Morizo PRO（月額）
+- `morizo_pro_yearly` - Morizo PRO（年額）
+- `morizo_ultimate_monthly` - Morizo ULTIMATE（月額）
+- `morizo_ultimate_yearly` - Morizo ULTIMATE（年額）
+
+**テスト設定**:
+- 内部テストトラック: `Morizo_Closed_Alpha`
+- テスター数: 3名
+- テスト参加方法: ウェブで参加可能
+
+**次のステップ**:
+- App Store Connectでの商品登録
+- App Store Connectでのサンドボックステスター設定
+- ストアサンドボックス環境でのテスト
+
+### 2025年12月8日: ストア解約時の同期問題の解決
+
+**解決内容**:
+- RevenueCat Webhookを実装し、ストアで解約した場合の`user_subscriptions`テーブルの`subscription_status`を自動更新する機能を追加
+- EXPIRATIONイベントの受信と処理が正常に動作することを確認
+- ログ出力により、Webhook処理の動作を確認可能
+
+**実装内容**:
+- バックエンドに`/api/revenuecat/webhook`エンドポイントを実装
+- RevenueCat Webhookイベント（EXPIRATION、CANCELLATION等）を受信
+- イベントタイプに応じて`user_subscriptions`テーブルの`subscription_status`を更新
+
+**動作確認ログ例**:
+```
+2025-12-08 19:20:49 - RevenueCat Webhookイベントを受信: EXPIRATION
+2025-12-08 19:20:49 - user_subscriptionsを更新: user_id=..., status=expired
+2025-12-08 19:20:49 - Webhook処理が成功しました
+```
+
+**詳細**: `docs/archive/monetization/REVENUECAT_WEBHOOK_IMPLEMENTATION.md`を参照
+
+### 2025年12月7日: 二重課金問題の解決
+
+**解決内容**:
+- PRO→ULTIMATE（アップグレード）とULTIMATE→PRO（ダウングレード）の両方で、既存のサブスクリプションが自動的にキャンセルされ、新しいサブスクリプションに置き換えられるようになりました
+- `upgradeInfo`を使用して、Google Play Store APIに既存のサブスクリプションを置き換える指示を明示的に送信する実装を追加
+
+**実装ファイル**:
+- `lib/subscription/revenue-cat-client.ts`: `getCustomerInfo()`メソッドの追加、`purchasePackage()`メソッドの拡張
+- `hooks/usePurchase.ts`: アップグレード/ダウングレード検出と`upgradeInfo`の作成
+
+**詳細**: `docs/MONETIZATION_DOUBLE_BILLING_INVESTIGATION.md`を参照
 

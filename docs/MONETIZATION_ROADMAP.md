@@ -706,6 +706,20 @@ iOSプラットフォームの場合も、同様の手順で商品を連携し�
    - **調査ドキュメント**: `docs/MONETIZATION_DOUBLE_BILLING_INVESTIGATION.md`を参照
    - **対応開始日**: 2025年12月7日
 
+6. **ストア解約時の同期問題（未解決）**
+   - **問題**: ストア（Google Play / App Store）でサブスクリプションを解約した場合、`user_subscriptions`テーブルの`subscription_status`が更新されず、`'active'`のまま残る
+   - **想定される動作**: ストアで解約した場合、`user_subscriptions`テーブルの`subscription_status`を`'cancelled'`または`'expired'`に更新する必要がある
+   - **原因**: 
+     - RevenueCatのWebhookが未設定、または未実装
+     - バックエンドでの定期的な同期処理が未実装
+     - アプリ起動時の状態確認処理が未実装
+   - **対応が必要**:
+     - RevenueCatのWebhookを設定し、解約イベントを受信して`user_subscriptions`を更新する
+     - または、アプリ起動時や定期的にRevenueCatからサブスクリプション状態を取得して同期する
+     - または、バックエンドで定期的にRevenueCat APIを呼び出して状態を同期する
+   - **現在の状況**: 未解決。本番環境リリース前に実装が必要
+   - **対応開始日**: 2025年12月7日
+
 ### 次のアクション（優先順位順）
 
 1. **ストア設定**（優先度: 高）
@@ -718,12 +732,19 @@ iOSプラットフォームの場合も、同様の手順で商品を連携し�
    - iOSサンドボックステスト
    - レシート検証の確認
 
-3. **二重課金問題の対応検討**（優先度: 中）
+3. **ストア解約時の同期処理の実装**（優先度: 高）
+   - RevenueCat Webhookの設定と実装
+   - または、アプリ起動時の状態確認処理の実装
+   - または、バックエンドでの定期的な同期処理の実装
+   - `user_subscriptions`テーブルの`subscription_status`を適切に更新する処理
+   - 参考: `docs/archive/monetization/REVENUECAT_WEBHOOK_IMPLEMENTATION.md`
+
+4. **二重課金問題の対応検討**（優先度: 中）
    - 将来的な対応方法の検討
    - ユーザーへの案内方法の検討
    - 参考: `docs/MONETIZATION_DOUBLE_BILLING_INVESTIGATION.md`
 
-4. **レシート検証機能の実装検討**（優先度: 低）
+5. **レシート検証機能の実装検討**（優先度: 低）
    - 本番環境リリース前に実装の必要性を検討
    - RevenueCatがレシート検証を代行する可能性を確認
    - 参考: `docs/archive/monetization/MONETIZATION_IMPLEMENTATION_DETAILS.md` セクション2.2, 3.1
@@ -749,6 +770,7 @@ iOSプラットフォームの場合も、同様の手順で商品を連携し�
 - `docs/archive/monetization/REVENUECAT_INITIAL_TEST_PLAN.md` - RevenueCat初期テスト実施プラン
 - `docs/archive/monetization/REVENUECAT_NEXT_STEPS.md` - RevenueCat次のステップ
 - `docs/archive/monetization/PHASE3_AI_RESPONSE.md` - Phase3実装完了報告とAPIキー取得方法
+- `docs/archive/monetization/REVENUECAT_WEBHOOK_IMPLEMENTATION.md` - RevenueCat Webhook実装ガイド（解約時の同期処理）
 
 ### ストア設定
 - `docs/archive/monetization/STORE_SETUP_GUIDE.md` - Google Play Console / App Store Connect設定ガイド

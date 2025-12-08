@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { Alert } from 'react-native';
 import { ChatMessage } from '../types/chat';
 import { supabase } from '../lib/supabase';
 import { generateSSESessionId } from '../lib/session-manager';
 import { logAPI, logComponent } from '../lib/logging';
 import { showErrorAlert } from '../utils/alert';
 import { getApiUrl } from '../lib/api-config';
+import { PlanInfo, UsageLimitInfo } from '../api/subscription-api';
 
 /**
  * チャットメッセージ管理フック
@@ -14,15 +16,137 @@ export function useChatMessages(
   chatMessages: ChatMessage[],
   setChatMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>,
   setIsTextChatLoading: React.Dispatch<React.SetStateAction<boolean>>,
-  scrollViewRef: React.RefObject<any>
+  scrollViewRef: React.RefObject<any>,
+  currentPlan: PlanInfo | null,
+  usageInfo: UsageLimitInfo | null
 ) {
   const [textMessage, setTextMessage] = useState<string>('');
   const [awaitingConfirmation, setAwaitingConfirmation] = useState<boolean>(false);
   const [confirmationSessionId, setConfirmationSessionId] = useState<string | null>(null);
   const [helpSessionId, setHelpSessionId] = useState<string | null>(null);
 
+  /**
+   * メッセージ内容から献立一括提案か段階的提案かを判定
+   */
+  const detectProposalType = (message: string): 'menu_bulk' | 'menu_step' | null => {
+    const normalizedMessage = message.trim().toLowerCase();
+    
+    // 献立一括提案のキーワード（より包括的なパターン）
+    const menuBulkPatterns = [
+      /献立を提案/,
+      /献立を教えて/,
+      /献立を作って/,
+      /献立を考えて/,
+      /献立を.*提案/,
+      /メニューを提案/,
+      /メニューを教えて/,
+      /今日の献立/,
+      /献立.*提案/,
+      /メニュー.*提案/,
+      /献立.*作って/,
+      /献立.*考えて/,
+    ];
+    
+    // 段階的提案のキーワード（より包括的なパターン）
+    const menuStepPatterns = [
+      /主菜.*提案/,
+      /主菜.*教えて/,
+      /主菜.*選んで/,
+      /副菜.*提案/,
+      /副菜.*教えて/,
+      /副菜.*選んで/,
+      /汁物.*提案/,
+      /汁物.*教えて/,
+      /汁物.*選んで/,
+      /その他のレシピ/,
+      /その他.*レシピ/,
+      /ご飯もの/,
+      /麺もの/,
+      /パスタもの/,
+      /.*の主菜.*提案/,
+      /.*の副菜.*提案/,
+      /.*の汁物.*提案/,
+    ];
+    
+    // 段階的提案を先にチェック（より具体的なパターンなので優先）
+    for (const pattern of menuStepPatterns) {
+      if (pattern.test(normalizedMessage)) {
+        return 'menu_step';
+      }
+    }
+    
+    // 献立一括提案のチェック
+    for (const pattern of menuBulkPatterns) {
+      if (pattern.test(normalizedMessage)) {
+        return 'menu_bulk';
+      }
+    }
+    
+    return null;
+  };
+
+  /**
+   * サブスクリプション制限をチェック
+   * 期限切れの場合でも、無料プランの制限内であれば機能を使えるようにする
+   * データが読み込まれていない場合は、チェックをスキップしてバックエンドに任せる
+   */
+  const checkSubscriptionLimit = (proposalType: 'menu_bulk' | 'menu_step'): boolean => {
+    // データが読み込まれていない場合は、チェックをスキップ（バックエンドでチェック）
+    if (!currentPlan || !usageInfo) {
+      console.log('[DEBUG] checkSubscriptionLimit: データ未読み込み、スキップ');
+      return true;
+    }
+
+    // 利用回数制限をチェック
+    // useSubscriptionフックで既に期限切れの場合はfreeプランの制限に設定されている
+    const usage = proposalType === 'menu_bulk' ? usageInfo.menu_bulk : usageInfo.menu_step;
+    const isExpired = currentPlan.subscription_status !== 'active';
+    
+    console.log('[DEBUG] checkSubscriptionLimit:', {
+      proposalType,
+      isExpired,
+      subscription_status: currentPlan.subscription_status,
+      plan_type: currentPlan.plan_type,
+      usage: usage ? { current: usage.current, limit: usage.limit } : null,
+      usageInfo: JSON.stringify(usageInfo)
+    });
+    
+    if (usage && usage.current >= usage.limit) {
+      const featureName = proposalType === 'menu_bulk' ? '献立一括提案' : '段階的提案';
+      const message = isExpired
+        ? `本日の${featureName}回数（${usage.current}/${usage.limit}）に達しました。\n\n現在は無料プラン相当の機能のみご利用いただけます。\n\nPRO機能を利用するには、サブスクリプションを再購入してください。`
+        : `本日の${featureName}回数（${usage.current}/${usage.limit}）に達しました。\n\n利用回数は毎日リセットされます。`;
+      
+      console.log('[DEBUG] checkSubscriptionLimit: 制限超過、ブロック');
+      Alert.alert(
+        '利用回数制限に達しました',
+        message,
+        [{ text: 'OK', style: 'default' }]
+      );
+      return false;
+    }
+
+    // 制限内であれば、期限切れでも機能を使える
+    console.log('[DEBUG] checkSubscriptionLimit: 制限内、許可');
+    return true;
+  };
+
   const sendTextMessage = async () => {
     if (!textMessage.trim()) return;
+
+    // 献立一括提案または段階的提案の場合は制限チェック
+    const proposalType = detectProposalType(textMessage);
+    console.log('[DEBUG] detectProposalType:', { message: textMessage, proposalType });
+    console.log('[DEBUG] subscription check:', { currentPlan, usageInfo });
+    
+    if (proposalType) {
+      const canProceed = checkSubscriptionLimit(proposalType);
+      console.log('[DEBUG] checkSubscriptionLimit result:', { proposalType, canProceed });
+      if (!canProceed) {
+        setIsTextChatLoading(false);
+        return;
+      }
+    }
 
     setIsTextChatLoading(true);
     
@@ -241,6 +365,15 @@ export function useChatMessages(
   // 直接メッセージを送信する関数（ボタンからの送信用）
   const sendTextMessageDirect = async (message: string) => {
     if (!message.trim()) return;
+
+    // 献立一括提案または段階的提案の場合は制限チェック
+    const proposalType = detectProposalType(message);
+    if (proposalType) {
+      if (!checkSubscriptionLimit(proposalType)) {
+        setIsTextChatLoading(false);
+        return;
+      }
+    }
 
     setIsTextChatLoading(true);
     

@@ -4,6 +4,8 @@ import { RecipeCandidate } from '../types/menu';
 import { sendSelection, authenticatedFetch } from '../api/recipe-api';
 import { getApiUrl } from '../lib/api-config';
 import { RecipeListModalSelectionInfo } from '../hooks/useModalManagement';
+import { PlanInfo } from '../api/subscription-api';
+import { UsageLimitInfo } from '../api/subscription-api';
 
 interface SelectionOptionsProps {
   candidates: RecipeCandidate[];
@@ -24,6 +26,9 @@ interface SelectionOptionsProps {
   onRequestMore?: (sseSessionId: string) => void;
   isLatestSelection?: boolean;
   proposalRound?: number;
+  // 利用回数チェック用
+  currentPlan?: PlanInfo | null;
+  usageInfo?: UsageLimitInfo | null;
 }
 
 const SelectionOptions: React.FC<SelectionOptionsProps> = ({
@@ -39,7 +44,9 @@ const SelectionOptions: React.FC<SelectionOptionsProps> = ({
   onViewList,
   onRequestMore,
   isLatestSelection,
-  proposalRound
+  proposalRound,
+  currentPlan,
+  usageInfo
 }) => {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
@@ -73,6 +80,25 @@ const SelectionOptions: React.FC<SelectionOptionsProps> = ({
   // Phase 2.4: 他の提案を見るハンドラー
   const handleRequestMore = async () => {
     if (isLoading || isConfirming || isRequestingMore) return;
+    
+    // 利用回数チェック（段階的提案: menu_step）
+    if (currentPlan && usageInfo) {
+      const menuStepUsage = usageInfo.menu_step;
+      const isExpired = currentPlan.subscription_status !== 'active';
+      
+      if (menuStepUsage && menuStepUsage.current >= menuStepUsage.limit) {
+        const message = isExpired
+          ? `本日の段階的提案回数（${menuStepUsage.current}/${menuStepUsage.limit}）に達しました。\n\n現在は無料プラン相当の機能のみご利用いただけます。\n\nPRO機能を利用するには、サブスクリプションを再購入してください。`
+          : `本日の段階的提案回数（${menuStepUsage.current}/${menuStepUsage.limit}）に達しました。\n\n利用回数は毎日リセットされます。`;
+        
+        Alert.alert(
+          '利用回数制限に達しました',
+          message,
+          [{ text: 'OK', style: 'default' }]
+        );
+        return;
+      }
+    }
     
     // 新しいSSEセッションIDを生成（既存のSSEセッションは切断済みのため）
     const newSseSessionId = `additional-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

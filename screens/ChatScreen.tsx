@@ -34,6 +34,7 @@ import { useRecipeSelection } from '../hooks/useRecipeSelection';
 import { useChatMessages } from '../hooks/useChatMessages';
 import { useSSEHandling } from '../hooks/useSSEHandling';
 import { useVoiceRecording } from '../hooks/useVoiceRecording';
+import { useSubscription } from '../hooks/useSubscription';
 import { ChatMessage } from '../types/chat';
 
 function ChatScreenContent() {
@@ -51,11 +52,14 @@ function ChatScreenContent() {
   // カスタムフック
   const modalManagement = useModalManagement();
   const recipeSelection = useRecipeSelection(setChatMessages, setAwaitingSelection);
+  const { currentPlan, usageInfo, loadSubscriptionData } = useSubscription();
   const chatMessagesHook = useChatMessages(
     chatMessages,
     setChatMessages,
     setIsTextChatLoading,
-    scrollViewRef
+    scrollViewRef,
+    currentPlan,
+    usageInfo
   );
   const sseHandling = useSSEHandling(
     chatMessages,
@@ -66,7 +70,10 @@ function ChatScreenContent() {
     setAwaitingSelection,
     scrollViewRef,
     chatMessagesHook.getApiUrl,
-    chatMessagesHook.setHelpSessionId
+    chatMessagesHook.setHelpSessionId,
+    loadSubscriptionData,
+    currentPlan,
+    usageInfo
   );
 
   // 音声録音機能
@@ -165,6 +172,8 @@ function ChatScreenContent() {
         createOnErrorHandler={sseHandling.createOnErrorHandler}
         createOnTimeoutHandler={sseHandling.createOnTimeoutHandler}
         createOnProgressHandler={sseHandling.createOnProgressHandler}
+        currentPlan={currentPlan}
+        usageInfo={usageInfo}
       />
 
       {/* テキストチャット入力欄 - キーボードの上に移動 */}

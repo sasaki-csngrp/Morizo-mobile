@@ -8,6 +8,8 @@ import SelectedRecipeCard from './SelectedRecipeCard';
 import { isMenuResponse } from '../lib/menu-parser';
 import { RecipeListModalSelectionInfo } from '../hooks/useModalManagement';
 import MarkdownText from './MarkdownText';
+import { PlanInfo } from '../api/subscription-api';
+import { UsageLimitInfo } from '../api/subscription-api';
 
 interface ChatMessageListProps {
   chatMessages: ChatMessage[];
@@ -34,6 +36,9 @@ interface ChatMessageListProps {
   createOnErrorHandler: (message: ChatMessage, messageIndex: number) => (error: string) => void;
   createOnTimeoutHandler: (message: ChatMessage, messageIndex: number) => () => void;
   createOnProgressHandler: () => () => void;
+  // 利用回数チェック用
+  currentPlan?: PlanInfo | null;
+  usageInfo?: UsageLimitInfo | null;
 }
 
 const ChatMessageList: React.FC<ChatMessageListProps> = ({
@@ -55,6 +60,8 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({
   createOnErrorHandler,
   createOnTimeoutHandler,
   createOnProgressHandler,
+  currentPlan,
+  usageInfo,
 }) => {
   // 自動スクロール処理
   useEffect(() => {
@@ -132,6 +139,8 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({
                         }}
                         onRequestMore={onRequestMore}
                         isLatestSelection={index === chatMessages.length - 1 || chatMessages.slice(index + 1).every(msg => !msg.requiresSelection)}
+                        currentPlan={currentPlan}
+                        usageInfo={usageInfo}
                       />
                     </View>
                   )}

@@ -3,6 +3,7 @@ import { Alert, Platform } from 'react-native';
 import { ChatMessage } from '../types/chat';
 import { RecipeCandidate } from '../types/menu';
 import { supabase } from '../lib/supabase';
+import { PlanInfo, UsageLimitInfo } from '../api/subscription-api';
 
 /**
  * SSE処理フック
@@ -18,7 +19,10 @@ export function useSSEHandling(
   setAwaitingSelection: React.Dispatch<React.SetStateAction<boolean>>,
   scrollViewRef: React.RefObject<any>,
   getApiUrl: () => string,
-  setHelpSessionId?: React.Dispatch<React.SetStateAction<string | null>>
+  setHelpSessionId?: React.Dispatch<React.SetStateAction<string | null>>,
+  loadSubscriptionData?: () => Promise<void>,
+  currentPlan?: PlanInfo | null,
+  usageInfo?: UsageLimitInfo | null
 ) {
   const handleRequestMore = (sseSessionId: string) => {
     // 新しいstreamingメッセージを追加（SSEセッションIDはSelectionOptionsから渡される）
@@ -41,6 +45,28 @@ export function useSSEHandling(
 
   // Phase 3C-3: 次の段階の提案を要求
   const handleNextStageRequested = async (sseSessionId?: string) => {
+    // 利用回数チェック（段階的提案: menu_step）
+    if (currentPlan && usageInfo) {
+      const menuStepUsage = usageInfo.menu_step;
+      const isExpired = currentPlan.subscription_status !== 'active';
+      
+      if (menuStepUsage && menuStepUsage.current >= menuStepUsage.limit) {
+        const message = isExpired
+          ? `本日の段階的提案回数（${menuStepUsage.current}/${menuStepUsage.limit}）に達しました。\n\n現在は無料プラン相当の機能のみご利用いただけます。\n\nPRO機能を利用するには、サブスクリプションを再購入してください。`
+          : `本日の段階的提案回数（${menuStepUsage.current}/${menuStepUsage.limit}）に達しました。\n\n利用回数は毎日リセットされます。`;
+
+        Alert.alert(
+          '利用回数制限に達しました',
+          message,
+          [{ text: 'OK', style: 'default' }]
+        );
+        console.log(`[DEBUG] Limit exceeded for menu_step. Current: ${menuStepUsage.current}, Limit: ${menuStepUsage.limit}. Expired: ${isExpired}`);
+        return;
+      }
+      
+      console.log(`[DEBUG] Limit not exceeded for menu_step. Current: ${menuStepUsage.current}, Limit: ${menuStepUsage.limit}. Expired: ${isExpired}`);
+    }
+    
     // SSEセッションIDの取得: 引数で渡された場合はそれを使用、 otherwise 最後のメッセージから取得
     let currentSseSessionId: string;
     
@@ -212,6 +238,23 @@ export function useSSEHandling(
         
         // 選択要求時はローディング状態を終了
         setIsTextChatLoading(false);
+        
+        // 段階的提案（menu_step）が完了した場合、利用回数を更新
+        // menu_data.candidates が存在する場合は段階的提案（menu_step）
+        const isMenuStep = typedResult?.menu_data?.candidates && Array.isArray(typedResult.menu_data.candidates);
+        
+        if (isMenuStep) {
+          console.log('[DEBUG] Menu step proposal completed, refreshing usage data', {
+            isMenuStep,
+            hasMenuData: !!typedResult?.menu_data,
+            candidatesCount: typedResult?.menu_data?.candidates?.length
+          });
+          if (loadSubscriptionData) {
+            loadSubscriptionData().catch((error) => {
+              console.error('[DEBUG] Failed to refresh usage data:', error);
+            });
+          }
+        }
       } else if (typedResult?.requires_confirmation && typedResult?.confirmation_session_id) {
         // 曖昧性確認が必要な場合
         console.log('[DEBUG] Setting awaitingConfirmation from SSE');
@@ -276,6 +319,25 @@ export function useSSEHandling(
         
         // 通常の完了時のみローディング終了
         setIsTextChatLoading(false);
+        
+        // 献立一括提案や段階的提案が完了した場合、利用回数を更新
+        // menu_data.innovative または menu_data.traditional が存在する場合は献立一括提案（menu_bulk）
+        // menu_data.candidates が存在する場合は段階的提案（menu_step）
+        const isMenuBulk = typedResult?.menu_data?.innovative || typedResult?.menu_data?.traditional;
+        const isMenuStep = typedResult?.menu_data?.candidates && Array.isArray(typedResult.menu_data.candidates);
+        
+        if (isMenuBulk || isMenuStep || typedResult?.response?.includes('斬新な提案') || typedResult?.response?.includes('伝統的な提案')) {
+          console.log('[DEBUG] Menu proposal completed, refreshing usage data', {
+            isMenuBulk,
+            isMenuStep,
+            hasMenuData: !!typedResult?.menu_data
+          });
+          if (loadSubscriptionData) {
+            loadSubscriptionData().catch((error) => {
+              console.error('[DEBUG] Failed to refresh usage data:', error);
+            });
+          }
+        }
       }
     };
   };

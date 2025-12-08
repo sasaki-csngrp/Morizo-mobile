@@ -6,6 +6,7 @@ import { useImagePicker } from '../hooks/useImagePicker';
 import { useOCRAnalysis } from '../hooks/useOCRAnalysis';
 import { useItemSelection } from '../hooks/useItemSelection';
 import { useItemRegistration } from '../hooks/useItemRegistration';
+import { useSubscription } from '../hooks/useSubscription';
 import ImageSelector from './ocr/ImageSelector';
 import ImagePreview from './ocr/ImagePreview';
 import OCRAnalysisButton from './ocr/OCRAnalysisButton';
@@ -42,6 +43,7 @@ const InventoryOCRModal: React.FC<InventoryOCRModalProps> = ({
   const { ocrResult, isAnalyzing, analyzeImage, editableItems, setEditableItems, clearResult, registerMapping } = useOCRAnalysis();
   const { selectedItems, toggleItem, selectAll, clearSelection } = useItemSelection(editableItems);
   const { isRegistering, registerItems } = useItemRegistration(onUploadComplete);
+  const { currentPlan, usageInfo } = useSubscription();
 
   // 前回の状態を追跡するためのref
   const previousImageUriRef = useRef<string | null>(null);
@@ -83,6 +85,29 @@ const InventoryOCRModal: React.FC<InventoryOCRModalProps> = ({
       Alert.alert('エラー', '画像ファイルを選択してください');
       return;
     }
+
+    // 利用回数制限をチェック
+    // useSubscriptionフックで既に期限切れの場合はfreeプランの制限に設定されている
+    // 期限切れの場合でも、無料プランの制限内であれば機能を使える
+    if (usageInfo) {
+      const ocrUsage = usageInfo.ocr;
+      if (ocrUsage && ocrUsage.current >= ocrUsage.limit) {
+        const isExpired = currentPlan && currentPlan.subscription_status !== 'active';
+        const message = isExpired
+          ? `本日のOCR読み取り回数（${ocrUsage.current}/${ocrUsage.limit}）に達しました。\n\n現在は無料プラン相当の機能のみご利用いただけます。\n\nPRO機能を利用するには、サブスクリプションを再購入してください。`
+          : `本日のOCR読み取り回数（${ocrUsage.current}/${ocrUsage.limit}）に達しました。\n\n利用回数は毎日リセットされます。`;
+        
+        Alert.alert(
+          '利用回数制限に達しました',
+          message,
+          [
+            { text: 'OK', style: 'default' }
+          ]
+        );
+        return;
+      }
+    }
+
     await analyzeImage(imageUri);
   };
 
@@ -164,9 +189,29 @@ const InventoryOCRModal: React.FC<InventoryOCRModalProps> = ({
 
                 <OCRAnalysisButton
                   onAnalyze={handleAnalyze}
-                  disabled={!imageUri || isAnalyzing}
+                  disabled={
+                    !imageUri || 
+                    isAnalyzing || 
+                    (usageInfo && usageInfo.ocr && usageInfo.ocr.current >= usageInfo.ocr.limit)
+                  }
                   isAnalyzing={isAnalyzing}
                 />
+                {/* 期限切れ時の警告メッセージ（制限内であれば機能は使える） */}
+                {currentPlan && currentPlan.subscription_status !== 'active' && (
+                  <View style={styles.warningBox}>
+                    <Text style={styles.warningText}>
+                      ⚠️ サブスクリプションが期限切れです。現在は無料プラン相当の機能のみご利用いただけます（OCR: {usageInfo?.ocr?.limit || 1}回/日）。PRO機能を利用するには再購入が必要です。
+                    </Text>
+                  </View>
+                )}
+                {/* 制限超過時の警告メッセージ */}
+                {usageInfo && usageInfo.ocr && usageInfo.ocr.current >= usageInfo.ocr.limit && (
+                  <View style={styles.warningBox}>
+                    <Text style={styles.warningText}>
+                      ⚠️ 本日の利用回数制限に達しました（{usageInfo.ocr.current}/{usageInfo.ocr.limit}）
+                    </Text>
+                  </View>
+                )}
               </>
             )}
 

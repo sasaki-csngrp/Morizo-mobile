@@ -175,5 +175,18 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  warningBox: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+  },
+  warningText: {
+    fontSize: 12,
+    color: '#92400E',
+    lineHeight: 18,
+  },
 });
 

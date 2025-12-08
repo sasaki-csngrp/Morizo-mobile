@@ -14,6 +14,7 @@ import { PlanType } from '../config/subscription';
 import { RevenueCatClient } from '../lib/subscription/revenue-cat-client';
 import { useSubscription } from '../hooks/useSubscription';
 import { usePurchase } from '../hooks/usePurchase';
+import { useAuth } from '../contexts/AuthContext';
 import { SubscriptionHeader } from '../components/subscription/SubscriptionHeader';
 import { CurrentPlanSection } from '../components/subscription/CurrentPlanSection';
 import { UsageInfoSection } from '../components/subscription/UsageInfoSection';
@@ -28,6 +29,7 @@ interface SubscriptionScreenProps {
 export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps = {}) {
   const [selectedPlan, setSelectedPlan] = useState<PlanType | null>(null);
   const revenueCatClient = RevenueCatClient.getInstance();
+  const { user } = useAuth();
   
   // サブスクリプションデータ管理フック
   const { currentPlan, usageInfo, isLoading, loadSubscriptionData, setCurrentPlan } = useSubscription();
@@ -41,10 +43,15 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
     onLoadSubscriptionData: loadSubscriptionData,
   });
 
-  // 初期化
+  // 初期化（Supabaseのuser.idをappUserIDとして設定）
   useEffect(() => {
-    revenueCatClient.initialize();
-  }, []);
+    if (user?.id) {
+      // Supabaseのuser_idをappUserIDとして設定
+      revenueCatClient.initialize(user.id);
+    } else {
+      revenueCatClient.initialize();
+    }
+  }, [user]);
 
   return (
     <Modal
@@ -79,13 +86,21 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
             onPlanSelect={setSelectedPlan}
           />
           
-          {selectedPlan && selectedPlan !== currentPlan?.plan_type && (
-            <PurchaseButton
-              selectedPlan={selectedPlan}
-              isPurchasing={isPurchasing}
-              onPress={handlePurchase}
-            />
-          )}
+          {selectedPlan && (() => {
+            // サブスクリプションが有効かどうかを判定
+            const isActive = currentPlan?.subscription_status === 'active';
+            // 有効なサブスクリプションで、かつ同じプランの場合は購入ボタンを非表示
+            // 期限切れやキャンセル済みの場合は、同じプランでも再購入可能
+            const shouldShowPurchaseButton = !isActive || selectedPlan !== currentPlan?.plan_type;
+            
+            return shouldShowPurchaseButton ? (
+              <PurchaseButton
+                selectedPlan={selectedPlan}
+                isPurchasing={isPurchasing}
+                onPress={handlePurchase}
+              />
+            ) : null;
+          })()}
           
           <InfoBox />
 

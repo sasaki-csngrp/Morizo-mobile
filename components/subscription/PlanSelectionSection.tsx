@@ -15,11 +15,26 @@ export function PlanSelectionSection({
   selectedPlan,
   onPlanSelect,
 }: PlanSelectionSectionProps) {
+  // サブスクリプションが有効かどうかを判定
+  const isActive = currentPlan?.subscription_status === 'active';
+
   const handlePlanSelect = (planType: PlanType) => {
-    if (planType === currentPlan?.plan_type) {
+    // 有効なサブスクリプションで、かつ同じプランの場合は選択不可
+    if (isActive && planType === currentPlan?.plan_type) {
       return; // 現在のプランは選択不可
     }
     onPlanSelect(planType);
+  };
+
+  // 各プランが選択可能かどうかを判定
+  const isPlanDisabled = (planType: PlanType): boolean => {
+    // 有効なサブスクリプションで、かつ現在のプランの場合のみ選択不可
+    return isActive && planType === currentPlan?.plan_type;
+  };
+
+  // 各プランが現在のプランかどうかを判定（表示用）
+  const isCurrentPlanDisplay = (planType: PlanType): boolean => {
+    return planType === currentPlan?.plan_type;
   };
 
   return (
@@ -28,26 +43,26 @@ export function PlanSelectionSection({
       
       <PlanCard
         planType="free"
-        isCurrentPlan={currentPlan?.plan_type === 'free'}
+        isCurrentPlan={isCurrentPlanDisplay('free')}
         isSelected={selectedPlan === 'free'}
         onSelect={() => handlePlanSelect('free')}
-        disabled={currentPlan?.plan_type === 'free'}
+        disabled={isPlanDisabled('free')}
       />
       
       <PlanCard
         planType="pro"
-        isCurrentPlan={currentPlan?.plan_type === 'pro'}
+        isCurrentPlan={isCurrentPlanDisplay('pro')}
         isSelected={selectedPlan === 'pro'}
         onSelect={() => handlePlanSelect('pro')}
-        disabled={currentPlan?.plan_type === 'pro'}
+        disabled={isPlanDisabled('pro')}
       />
       
       <PlanCard
         planType="ultimate"
-        isCurrentPlan={currentPlan?.plan_type === 'ultimate'}
+        isCurrentPlan={isCurrentPlanDisplay('ultimate')}
         isSelected={selectedPlan === 'ultimate'}
         onSelect={() => handlePlanSelect('ultimate')}
-        disabled={currentPlan?.plan_type === 'ultimate'}
+        disabled={isPlanDisabled('ultimate')}
       />
     </View>
   );

@@ -98,8 +98,9 @@ export class RevenueCatClient {
 
   /**
    * RevenueCat SDKの初期化
+   * @param appUserID - Supabaseのuser.id（UUID形式）。指定するとRevenueCatのapp_user_idとして設定される
    */
-  public async initialize(): Promise<boolean> {
+  public async initialize(appUserID?: string): Promise<boolean> {
     if (!this.Purchases) {
       if (this.isExpoGo) {
         safeLog.info(LogCategory.API, 'RevenueCatはExpo Go環境では使用できません。バックエンドAPI連携のみ動作します。');
@@ -125,9 +126,19 @@ export class RevenueCatClient {
         return false;
       }
 
+      // 初期化オプションを構築
+      const configureOptions: any = { apiKey: revenueCatApiKey };
+      if (appUserID) {
+        configureOptions.appUserID = appUserID;
+        safeLog.info(LogCategory.API, 'RevenueCat初期化: appUserIDを設定', { appUserID });
+      }
+
       // Expo Go環境でも初期化を試みる（エラーが発生する可能性があるが、テストのため）
-      await this.Purchases.configure({ apiKey: revenueCatApiKey });
-      safeLog.info(LogCategory.API, 'RevenueCat初期化成功', { isExpoGo: this.isExpoGo });
+      await this.Purchases.configure(configureOptions);
+      safeLog.info(LogCategory.API, 'RevenueCat初期化成功', { 
+        isExpoGo: this.isExpoGo,
+        hasAppUserID: !!appUserID 
+      });
       this.isInitialized = true;
 
       // オファリングを取得

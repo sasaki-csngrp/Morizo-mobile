@@ -186,8 +186,64 @@ export function usePurchase({
         throw new Error(`商品が見つかりません: ${productId}`);
       }
 
+      // アップグレード/ダウングレード情報の作成
+      // PRO→ULTIMATE（アップグレード）またはULTIMATE→PRO（ダウングレード）の場合
+      let upgradeInfo: any = undefined;
+      const isUpgrade = selectedPlan === 'ultimate' && currentPlan && currentPlan.plan_type === 'pro' && currentPlan.subscription_status === 'active';
+      const isDowngrade = selectedPlan === 'pro' && currentPlan && currentPlan.plan_type === 'ultimate' && currentPlan.subscription_status === 'active';
+      
+      if (isUpgrade || isDowngrade) {
+        // 現在アクティブなサブスクリプションのProduct IDを取得
+        const customerInfoForUpgrade = await revenueCatClient.getCustomerInfo();
+        let oldProductId: string | undefined;
+
+        if (customerInfoForUpgrade && customerInfoForUpgrade.activeSubscriptions) {
+          const activeSubs = customerInfoForUpgrade.activeSubscriptions;
+          
+          if (isUpgrade) {
+            // PRO→ULTIMATE: アクティブなPROのIDを探す
+            const proMonthlyId = SUBSCRIPTION_PRODUCTS.PRO_MONTHLY;
+            const proYearlyId = SUBSCRIPTION_PRODUCTS.PRO_YEARLY;
+
+            if (activeSubs.some((subId: string) => subId === proMonthlyId || subId.startsWith(proMonthlyId + ':'))) {
+              oldProductId = proMonthlyId;
+            } else if (activeSubs.some((subId: string) => subId === proYearlyId || subId.startsWith(proYearlyId + ':'))) {
+              oldProductId = proYearlyId;
+            }
+          } else if (isDowngrade) {
+            // ULTIMATE→PRO: アクティブなULTIMATEのIDを探す
+            const ultimateMonthlyId = SUBSCRIPTION_PRODUCTS.ULTIMATE_MONTHLY;
+            const ultimateYearlyId = SUBSCRIPTION_PRODUCTS.ULTIMATE_YEARLY;
+
+            if (activeSubs.some((subId: string) => subId === ultimateMonthlyId || subId.startsWith(ultimateMonthlyId + ':'))) {
+              oldProductId = ultimateMonthlyId;
+            } else if (activeSubs.some((subId: string) => subId === ultimateYearlyId || subId.startsWith(ultimateYearlyId + ':'))) {
+              oldProductId = ultimateYearlyId;
+            }
+          }
+        }
+
+        if (oldProductId) {
+          upgradeInfo = {
+            oldProductId: oldProductId,
+            // IMMEDIATE_AND_CHARGE: 即座に変更し、日割りで差額を請求/返金（アップグレード・ダウングレード共通）
+            googleMode: 'IMMEDIATE_AND_CHARGE' as const,
+          };
+          safeLog.info(LogCategory.API, isUpgrade ? 'アップグレード準備完了' : 'ダウングレード準備完了', {
+            oldProductId: oldProductId,
+            newProductId: productId,
+            fromPlan: isUpgrade ? 'pro' : 'ultimate',
+            toPlan: isUpgrade ? 'ultimate' : 'pro'
+          });
+        } else {
+          safeLog.warn(LogCategory.API, `アクティブな${isUpgrade ? 'PRO' : 'ULTIMATE'}のProduct IDが見つかりませんでした。通常の購入として続行します。`, {
+            activeSubscriptions: customerInfoForUpgrade?.activeSubscriptions || []
+          });
+        }
+      }
+
       // 購入処理
-      const customerInfo = await revenueCatClient.purchasePackage(packageToPurchase);
+      const customerInfo = await revenueCatClient.purchasePackage(packageToPurchase, upgradeInfo);
       
       // バックエンドに同期
       await syncPurchaseWithBackend(customerInfo, productId);

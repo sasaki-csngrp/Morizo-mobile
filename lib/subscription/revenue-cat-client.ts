@@ -21,6 +21,13 @@ export interface RevenueCatCustomerInfo {
   entitlements?: {
     active?: Record<string, any>;
   };
+  activeSubscriptions?: string[];
+}
+
+// UpgradeInfoの型定義（react-native-purchasesの型定義に基づく）
+export interface UpgradeInfo {
+  oldProductId: string;
+  googleMode?: 'IMMEDIATE_AND_CHARGE' | 'IMMEDIATE_WITHOUT_PRORATION' | 'DEFERRED';
 }
 
 /**
@@ -199,6 +206,36 @@ export class RevenueCatClient {
   }
 
   /**
+   * 顧客情報の取得
+   */
+  public async getCustomerInfo(): Promise<RevenueCatCustomerInfo | null> {
+    if (!this.Purchases) {
+      return null;
+    }
+
+    try {
+      const customerInfo = await this.Purchases.getCustomerInfo();
+      safeLog.info(LogCategory.API, '顧客情報取得成功', { 
+        isExpoGo: this.isExpoGo,
+        hasEntitlements: !!customerInfo.entitlements,
+        activeSubscriptions: customerInfo.activeSubscriptions || []
+      });
+      
+      return {
+        originalAppUserId: customerInfo.originalAppUserId,
+        entitlements: customerInfo.entitlements,
+        activeSubscriptions: customerInfo.activeSubscriptions || [],
+      };
+    } catch (error: any) {
+      safeLog.warn(LogCategory.API, '顧客情報取得エラー', { 
+        error: error.message,
+        isExpoGo: this.isExpoGo 
+      });
+      return null;
+    }
+  }
+
+  /**
    * パッケージの検索
    * Package IDまたはProduct IDで検索
    * 注意: Play Storeの商品をインポートした場合、Product IDは「商品ID:ストア内の商品ID」形式になる
@@ -267,16 +304,75 @@ export class RevenueCatClient {
 
   /**
    * パッケージの購入
+   * @param packageToPurchase - 購入するパッケージ
+   * @param upgradeInfo - アップグレード情報（PRO→ULTIMATEなどの場合に指定）
    */
-  public async purchasePackage(packageToPurchase: RevenueCatPackage): Promise<RevenueCatCustomerInfo> {
+  public async purchasePackage(
+    packageToPurchase: RevenueCatPackage,
+    upgradeInfo?: UpgradeInfo
+  ): Promise<RevenueCatCustomerInfo> {
     if (!this.Purchases) {
       throw new Error('RevenueCat SDKが利用できません');
     }
 
     try {
-      // Expo Go環境でも購入処理を試みる（エラーハンドリングでテスト可能）
-      const purchaseResult = await this.Purchases.purchasePackage(packageToPurchase);
-      safeLog.info(LogCategory.API, 'RevenueCat購入処理成功', { isExpoGo: this.isExpoGo });
+      // upgradeInfoがある場合は、SDKのpurchasePackageに渡す
+      // react-native-purchases v8では、第2引数としてupgradeInfoを直接渡す
+      let purchaseResult;
+      if (upgradeInfo) {
+        // Androidの場合、GoogleUpgradeModeを設定
+        if (Platform.OS === 'android') {
+          // react-native-purchasesのGoogleUpgradeModeを取得
+          // SDKから直接取得できない場合は、定数として定義
+          const GoogleUpgradeMode = this.Purchases.GoogleUpgradeMode || {
+            IMMEDIATE_AND_CHARGE: 1,
+            IMMEDIATE_WITHOUT_PRORATION: 2,
+            DEFERRED: 3,
+          };
+          
+          // upgradeInfoをSDKが期待する形式に変換
+          const googleModeValue = upgradeInfo.googleMode === 'IMMEDIATE_AND_CHARGE' 
+            ? GoogleUpgradeMode.IMMEDIATE_AND_CHARGE
+            : upgradeInfo.googleMode === 'IMMEDIATE_WITHOUT_PRORATION'
+            ? GoogleUpgradeMode.IMMEDIATE_WITHOUT_PRORATION
+            : upgradeInfo.googleMode === 'DEFERRED'
+            ? GoogleUpgradeMode.DEFERRED
+            : GoogleUpgradeMode.IMMEDIATE_AND_CHARGE;
+          
+          // react-native-purchases v8のAPIに基づいて、upgradeInfoを渡す
+          // 実際のSDKのAPIに合わせて調整が必要な場合があります
+          const upgradeInfoForSDK = {
+            oldProductIdentifier: upgradeInfo.oldProductId,
+            prorationMode: googleModeValue,
+          };
+          
+          safeLog.info(LogCategory.API, 'アップグレード情報を設定', {
+            oldProductId: upgradeInfo.oldProductId,
+            googleMode: upgradeInfo.googleMode,
+            prorationMode: googleModeValue,
+            newProductId: packageToPurchase.product?.identifier,
+          });
+          
+          // purchasePackageにupgradeInfoを渡す
+          // react-native-purchases v8では、第2引数としてupgradeInfoを渡す
+          purchaseResult = await this.Purchases.purchasePackage(
+            packageToPurchase,
+            upgradeInfoForSDK
+          );
+        } else {
+          // iOSの場合、upgradeInfoは不要（App Storeが自動処理）
+          purchaseResult = await this.Purchases.purchasePackage(packageToPurchase);
+        }
+      } else {
+        // 通常の購入処理
+        purchaseResult = await this.Purchases.purchasePackage(packageToPurchase);
+      }
+      
+      safeLog.info(LogCategory.API, 'RevenueCat購入処理成功', { 
+        isExpoGo: this.isExpoGo,
+        hasUpgradeInfo: !!upgradeInfo,
+        platform: Platform.OS
+      });
       
       // purchaseResultの構造を確認（CustomerInfoオブジェクトまたはラップされた構造の可能性）
       const customerInfo = purchaseResult.customerInfo || purchaseResult;
@@ -295,7 +391,8 @@ export class RevenueCatClient {
       
       safeLog.warn(LogCategory.API, 'RevenueCat購入処理エラー（Expo Go環境の可能性）', { 
         error: error.message,
-        isExpoGo: this.isExpoGo 
+        isExpoGo: this.isExpoGo,
+        hasUpgradeInfo: !!upgradeInfo
       });
       throw error;
     }

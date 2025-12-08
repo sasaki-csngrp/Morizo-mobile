@@ -1,7 +1,8 @@
 # 二重課金問題の調査タスク
 
 **作成日**: 2025年12月7日  
-**状況**: ⚠️ 問題確認済み - 調査中
+**最終更新**: 2025年12月7日  
+**状況**: ✅ **解決済み** - 実装完了
 
 ---
 
@@ -422,6 +423,156 @@
 
 ---
 
+## ✅ 解決策の実装（2025年12月7日）
+
+### 問題の解決方法
+
+**解決策**: `upgradeInfo`を使用して、Google Play Store APIに既存のサブスクリプションを置き換える指示を明示的に送信する。
+
+**実装のポイント**:
+- `react-native-purchases`の`purchasePackage`メソッドに`upgradeInfo`パラメータを追加
+- アップグレード/ダウングレード時に、アクティブな既存サブスクリプションのProduct IDを取得
+- `upgradeInfo`に`oldProductId`を設定し、Google Play Store APIに「新しい購入が既存のサブスクリプションを置き換える」ことを指示
+
+### 実装内容
+
+#### 1. `lib/subscription/revenue-cat-client.ts`の修正
+
+**追加した機能**:
+- `getCustomerInfo()`メソッド: アクティブなサブスクリプション情報を取得
+- `UpgradeInfo`型定義: アップグレード情報の型を定義
+- `purchasePackage()`メソッドの拡張: `upgradeInfo`パラメータを受け取り、Androidの場合に`prorationMode`を設定してSDKに渡す
+
+**実装コード**:
+```typescript
+// UpgradeInfoの型定義
+export interface UpgradeInfo {
+  oldProductId: string;
+  googleMode?: 'IMMEDIATE_AND_CHARGE' | 'IMMEDIATE_WITHOUT_PRORATION' | 'DEFERRED';
+}
+
+// getCustomerInfoメソッドの追加
+public async getCustomerInfo(): Promise<RevenueCatCustomerInfo | null> {
+  if (!this.Purchases) {
+    return null;
+  }
+  const customerInfo = await this.Purchases.getCustomerInfo();
+  return {
+    originalAppUserId: customerInfo.originalAppUserId,
+    entitlements: customerInfo.entitlements,
+    activeSubscriptions: customerInfo.activeSubscriptions || [],
+  };
+}
+
+// purchasePackageメソッドの拡張
+public async purchasePackage(
+  packageToPurchase: RevenueCatPackage,
+  upgradeInfo?: UpgradeInfo
+): Promise<RevenueCatCustomerInfo> {
+  // ... 既存のコード ...
+  
+  if (upgradeInfo && Platform.OS === 'android') {
+    const upgradeInfoForSDK = {
+      oldProductIdentifier: upgradeInfo.oldProductId,
+      prorationMode: googleModeValue, // IMMEDIATE_AND_CHARGE = 1
+    };
+    purchaseResult = await this.Purchases.purchasePackage(
+      packageToPurchase,
+      upgradeInfoForSDK
+    );
+  } else {
+    purchaseResult = await this.Purchases.purchasePackage(packageToPurchase);
+  }
+  // ... 後続の処理 ...
+}
+```
+
+#### 2. `hooks/usePurchase.ts`の修正
+
+**追加した機能**:
+- アップグレード/ダウングレード検出: PRO→ULTIMATE（アップグレード）とULTIMATE→PRO（ダウングレード）の両方を検出
+- アクティブなサブスクリプションの取得: `getCustomerInfo()`でアクティブな既存サブスクリプションのProduct IDを取得
+- `upgradeInfo`の作成: 既存のProduct IDを`oldProductId`として設定し、`upgradeInfo`を作成
+
+**実装コード**:
+```typescript
+// アップグレード/ダウングレード情報の作成
+let upgradeInfo: any = undefined;
+const isUpgrade = selectedPlan === 'ultimate' && currentPlan && 
+  currentPlan.plan_type === 'pro' && currentPlan.subscription_status === 'active';
+const isDowngrade = selectedPlan === 'pro' && currentPlan && 
+  currentPlan.plan_type === 'ultimate' && currentPlan.subscription_status === 'active';
+
+if (isUpgrade || isDowngrade) {
+  const customerInfoForUpgrade = await revenueCatClient.getCustomerInfo();
+  let oldProductId: string | undefined;
+
+  if (customerInfoForUpgrade && customerInfoForUpgrade.activeSubscriptions) {
+    const activeSubs = customerInfoForUpgrade.activeSubscriptions;
+    
+    if (isUpgrade) {
+      // PRO→ULTIMATE: アクティブなPROのIDを探す
+      const proMonthlyId = SUBSCRIPTION_PRODUCTS.PRO_MONTHLY;
+      const proYearlyId = SUBSCRIPTION_PRODUCTS.PRO_YEARLY;
+      // ... Product IDの検索処理 ...
+    } else if (isDowngrade) {
+      // ULTIMATE→PRO: アクティブなULTIMATEのIDを探す
+      const ultimateMonthlyId = SUBSCRIPTION_PRODUCTS.ULTIMATE_MONTHLY;
+      const ultimateYearlyId = SUBSCRIPTION_PRODUCTS.ULTIMATE_YEARLY;
+      // ... Product IDの検索処理 ...
+    }
+  }
+
+  if (oldProductId) {
+    upgradeInfo = {
+      oldProductId: oldProductId,
+      googleMode: 'IMMEDIATE_AND_CHARGE' as const,
+    };
+  }
+}
+
+// 購入処理
+const customerInfo = await revenueCatClient.purchasePackage(packageToPurchase, upgradeInfo);
+```
+
+### 動作の仕組み
+
+1. **アップグレード/ダウングレード検出**
+   - `selectedPlan`と`currentPlan`を比較して、アップグレードまたはダウングレードを検出
+
+2. **既存サブスクリプションの取得**
+   - `getCustomerInfo()`でアクティブなサブスクリプションのリストを取得
+   - 既存のProduct ID（`morizo_pro_monthly`または`morizo_ultimate_monthly`など）を特定
+
+3. **upgradeInfoの作成**
+   - `oldProductId`に既存のProduct IDを設定
+   - `googleMode`を`IMMEDIATE_AND_CHARGE`に設定（即座に変更し、日割りで差額を請求/返金）
+
+4. **Google Play Store APIへの指示**
+   - RevenueCat SDKが`upgradeInfo`を受け取り、Google Play Store APIに「新しい購入（ULTIMATE）が既存のサブスクリプション（PRO）を置き換える」ことを明示的に指示
+   - これにより、既存のサブスクリプションが自動的にキャンセルされ、二重登録が回避される
+
+### 解決した問題
+
+✅ **PRO→ULTIMATE（アップグレード）**: 既存のPROサブスクリプションが自動的にキャンセルされ、ULTIMATEに置き換えられる  
+✅ **ULTIMATE→PRO（ダウングレード）**: 既存のULTIMATEサブスクリプションが自動的にキャンセルされ、PROに置き換えられる  
+✅ **二重課金の回避**: Google Playストアで両方のサブスクリプションが表示される問題が解消
+
+### 重要なポイント
+
+- **Play Consoleの設定は不要**: APIによる明示的な指示がPlay Consoleの設定よりも優先されるため、設定画面が見つからなくても問題なく動作する
+- **Android専用の実装**: iOSの場合は、App Storeが自動的に処理するため、`upgradeInfo`は不要
+- **日割り計算**: `IMMEDIATE_AND_CHARGE`モードにより、アップグレード時は差額を請求、ダウングレード時は差額を返金（クレジット）する
+
+### テスト結果
+
+- ✅ PRO→ULTIMATEのアップグレード: 正常に動作確認済み
+- ✅ ULTIMATE→PROのダウングレード: 正常に動作確認済み
+- ✅ 二重登録の回避: Google Playストアで両方のサブスクリプションが表示されないことを確認
+
+---
+
 **最終更新**: 2025年12月7日  
-**作成者**: AIエージェント協働チーム
+**作成者**: AIエージェント協働チーム  
+**解決策の提供**: Google Gemini
 

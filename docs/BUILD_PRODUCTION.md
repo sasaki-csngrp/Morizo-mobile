@@ -141,10 +141,12 @@ EAS Dashboardで環境変数を設定します：
 ```bash
 # APKファイル（直接インストール用）
 # production-apkプロファイルを使用
+npx expo-doctor
 eas build --platform android --profile production-apk
 
 # AABファイル（Google Play Store提出用）
 # productionプロファイルを使用（デフォルトでAABを生成）
+npx expo-doctor
 eas build --platform android --profile production
 ```
 
@@ -225,6 +227,7 @@ eas build --platform android --profile production
 #### iOS用ビルド
 
 ```bash
+npx expo-doctor
 eas build --platform ios --profile production
 ```
 
@@ -233,6 +236,7 @@ eas build --platform ios --profile production
 #### 両方のプラットフォーム
 
 ```bash
+npx expo-doctor
 eas build --platform all --profile production
 ```
 

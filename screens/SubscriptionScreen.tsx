@@ -21,6 +21,7 @@ import { UsageInfoSection } from '../components/subscription/UsageInfoSection';
 import { PlanSelectionSection } from '../components/subscription/PlanSelectionSection';
 import { PurchaseButton } from '../components/subscription/PurchaseButton';
 import { InfoBox } from '../components/subscription/InfoBox';
+import { PurchaseInfoSection } from '../components/subscription/PurchaseInfoSection';
 
 interface SubscriptionScreenProps {
   onClose?: () => void;
@@ -94,15 +95,22 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
             const shouldShowPurchaseButton = !isActive || selectedPlan !== currentPlan?.plan_type;
             
             return shouldShowPurchaseButton ? (
-              <PurchaseButton
-                selectedPlan={selectedPlan}
-                isPurchasing={isPurchasing}
-                onPress={handlePurchase}
-              />
-            ) : null;
+              <>
+                {/* iOS専用: 購入ボタンの上に必須情報を表示（Apple審査要件） */}
+                <PurchaseInfoSection selectedPlan={selectedPlan} />
+                <PurchaseButton
+                  selectedPlan={selectedPlan}
+                  isPurchasing={isPurchasing}
+                  onPress={handlePurchase}
+                />
+                <InfoBox />
+              </>
+            ) : (
+              <InfoBox />
+            );
           })()}
           
-          <InfoBox />
+          {!selectedPlan && <InfoBox />}
 
         {/* Expo Go環境での注意メッセージ */}
         {revenueCatClient.getIsExpoGo() && (

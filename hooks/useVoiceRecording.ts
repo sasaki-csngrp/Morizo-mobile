@@ -370,7 +370,8 @@ export function useVoiceRecording(
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${currentSession.access_token}`,
-              'Content-Type': 'multipart/form-data',
+              // Content-TypeはFormDataの場合、React Nativeが自動的に設定するため指定しない
+              // 手動で設定するとboundaryが含まれず、サーバー側でFormDataを正しく解析できない
             },
             body: formData,
           });

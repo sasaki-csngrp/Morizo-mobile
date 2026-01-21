@@ -8,6 +8,10 @@ export interface RevenueCatPackage {
   product?: {
     identifier: string;
     title?: string;
+    priceString?: string; // ローカライズされた価格文字列（例: "¥100"）
+    localizedPriceString?: string; // ローカライズされた価格文字列（別名）
+    price?: number; // 価格（数値）
+    currencyCode?: string; // 通貨コード（例: "JPY"）
   };
 }
 
@@ -206,6 +210,40 @@ export class RevenueCatClient {
   }
 
   /**
+   * オファリング取得の診断情報を取得
+   * エラー発生時に詳細情報を提供するために使用
+   */
+  public getOfferingsDiagnostics(): {
+    isInitialized: boolean;
+    isRevenueCatAvailable: boolean;
+    hasCurrentOffering: boolean;
+    offeringIdentifier: string | null;
+    packageCount: number;
+    availablePackageIds: string[];
+    lastError: string | null;
+  } {
+    return {
+      isInitialized: this.isInitialized,
+      isRevenueCatAvailable: this.isAvailable(),
+      hasCurrentOffering: !!this.currentOffering,
+      offeringIdentifier: this.currentOffering?.identifier || null,
+      packageCount: this.currentOffering?.availablePackages.length || 0,
+      availablePackageIds: this.currentOffering?.availablePackages.map((pkg: any) => 
+        pkg.identifier || pkg.product?.identifier || 'unknown'
+      ) || [],
+      lastError: null, // エラー情報は別途管理する必要がある場合は追加
+    };
+  }
+
+  /**
+   * オファリングを再取得を試みる
+   * エラー発生時に再試行するために使用
+   */
+  public async retryLoadOfferings(): Promise<RevenueCatOffering | null> {
+    return await this.loadOfferings();
+  }
+
+  /**
    * 顧客情報の取得
    */
   public async getCustomerInfo(): Promise<RevenueCatCustomerInfo | null> {
@@ -233,6 +271,137 @@ export class RevenueCatClient {
       });
       return null;
     }
+  }
+
+  /**
+   * 顧客情報の詳細診断情報を取得
+   * 課金状態とDB状態の不整合を調査するために使用
+   */
+  public async getCustomerInfoDiagnostics(): Promise<{
+    hasCustomerInfo: boolean;
+    activeSubscriptions: string[];
+    entitlements: {
+      pro?: { isActive: boolean; productId?: string; expirationDate?: string };
+      ultimate?: { isActive: boolean; productId?: string; expirationDate?: string };
+    };
+    rawCustomerInfo: any;
+  }> {
+    if (!this.Purchases) {
+      return {
+        hasCustomerInfo: false,
+        activeSubscriptions: [],
+        entitlements: {},
+        rawCustomerInfo: null,
+      };
+    }
+
+    try {
+      const customerInfo = await this.Purchases.getCustomerInfo();
+      
+      if (!customerInfo) {
+        return {
+          hasCustomerInfo: false,
+          activeSubscriptions: [],
+          entitlements: {},
+          rawCustomerInfo: null,
+        };
+      }
+
+      // エンタイトルメント情報を取得
+      const entitlements: any = {};
+      const activeEntitlements = customerInfo.entitlements?.active || {};
+      
+      // すべてのエンタイトルメントを確認（pro, ultimate, morizo_pro, morizo_ultimate）
+      const entitlementKeys = ['pro', 'ultimate', 'morizo_pro', 'morizo_ultimate'];
+      
+      for (const key of entitlementKeys) {
+        if (activeEntitlements[key]) {
+          const entitlement = activeEntitlements[key];
+          const planType = key === 'morizo_pro' ? 'pro' : key === 'morizo_ultimate' ? 'ultimate' : key;
+          
+          entitlements[planType] = {
+            isActive: true,
+            productId: entitlement.productIdentifier || entitlement.product_identifier || '不明',
+            expirationDate: entitlement.expirationDate || entitlement.expiration_date || '不明',
+            identifier: entitlement.identifier || key,
+          };
+        }
+      }
+
+      // アクティブなサブスクリプションを取得
+      const activeSubscriptions = customerInfo.activeSubscriptions || [];
+
+      return {
+        hasCustomerInfo: true,
+        activeSubscriptions,
+        entitlements,
+        rawCustomerInfo: {
+          originalAppUserId: customerInfo.originalAppUserId,
+          activeSubscriptions,
+          entitlements: customerInfo.entitlements,
+        },
+      };
+    } catch (error: any) {
+      safeLog.error(LogCategory.API, '診断情報取得エラー', { 
+        error: error.message,
+        isExpoGo: this.isExpoGo 
+      });
+      return {
+        hasCustomerInfo: false,
+        activeSubscriptions: [],
+        entitlements: {},
+        rawCustomerInfo: null,
+      };
+    }
+  }
+
+  /**
+   * パッケージの価格情報を取得
+   * @param productId - 商品ID
+   * @returns 価格文字列（例: "¥100"）またはnull
+   */
+  public getPackagePrice(productId: string): string | null {
+    if (!this.currentOffering) {
+      return null;
+    }
+
+    const availablePackages = this.currentOffering.availablePackages;
+    
+    // パッケージを検索
+    const packageToPurchase = availablePackages.find(
+      (pkg: any) => {
+        // Package IDで検索
+        if (pkg.identifier === productId) {
+          return true;
+        }
+        // Product IDで検索（完全一致または「商品ID:」で始まる場合）
+        const pkgProductId = pkg.product?.identifier;
+        if (pkgProductId === productId) {
+          return true;
+        }
+        // Product IDが「商品ID:」で始まる場合（Play Storeインポート形式）
+        if (pkgProductId && pkgProductId.startsWith(productId + ':')) {
+          return true;
+        }
+        return false;
+      }
+    );
+
+    if (!packageToPurchase || !packageToPurchase.product) {
+      return null;
+    }
+    
+    // react-native-purchasesのパッケージオブジェクトから価格情報を取得
+    // priceStringまたはlocalizedPriceStringを優先的に使用
+    const product = packageToPurchase.product as any;
+    const priceString = product.priceString || product.localizedPriceString;
+    
+    if (priceString) {
+      return priceString;
+    }
+    
+    // 価格情報がない場合はnullを返す
+    return null;
   }
 
   /**

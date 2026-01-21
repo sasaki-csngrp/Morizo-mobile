@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ScrollView } from 'react-native';
+import { ScrollView, AppState } from 'react-native';
 import { Audio } from 'expo-av';
 import { supabase } from '../lib/supabase';
 import { showErrorAlert } from '../utils/alert';
@@ -262,17 +262,45 @@ export function useVoiceRecording(
 
       logComponent('ChatScreen', 'start_recording');
       
+      // アプリがフォアグラウンドにあることを確認
+      const appState = AppState.currentState;
+      if (appState !== 'active') {
+        logComponent('ChatScreen', 'recording_blocked', { 
+          reason: 'アプリがバックグラウンド', 
+          appState 
+        });
+        showErrorAlert('アプリをフォアグラウンドに戻してから録音を開始してください');
+        return;
+      }
+      
       // 録音権限のリクエスト
       const permission = await Audio.requestPermissionsAsync();
       if (permission.status !== 'granted') {
         throw new Error('録音権限が許可されていません');
       }
 
-      // 録音設定
+      // 録音設定（iOS 26.2対応: バックグラウンドでの動作を明示的に無効化）
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
+        staysActiveInBackground: false, // 審査員のエラー対策: バックグラウンドでの動作を無効化
+        shouldDuckAndroid: true, // Android用（iOSでは無視される）
       });
+
+      // 0.2秒ほど待機（OSがセッションを切り替える時間を確保）
+      // iOS 26.2でのオーディオセッション切り替えタイミングの問題を回避
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // 再度アプリ状態を確認（待機中にバックグラウンドに移行した可能性があるため）
+      const currentAppState = AppState.currentState;
+      if (currentAppState !== 'active') {
+        logComponent('ChatScreen', 'recording_blocked', { 
+          reason: '待機中にバックグラウンドに移行', 
+          appState: currentAppState 
+        });
+        showErrorAlert('アプリをフォアグラウンドに戻してから録音を開始してください');
+        return;
+      }
 
       // 録音開始
       const { recording: newRecording } = await Audio.Recording.createAsync(

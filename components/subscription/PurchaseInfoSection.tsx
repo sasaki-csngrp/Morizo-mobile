@@ -1,32 +1,74 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Platform, Linking } from 'react-native';
-import { PlanType } from '../../config/subscription';
+import { PlanType, SUBSCRIPTION_PRODUCTS } from '../../config/subscription';
+import { RevenueCatClient } from '../../lib/subscription/revenue-cat-client';
+import { BillingPeriod } from './BillingPeriodToggle';
 
 interface PurchaseInfoSectionProps {
   selectedPlan: PlanType | null;
+  billingPeriod: BillingPeriod;
 }
 
 /**
  * iOS専用: 購入ボタンの上に表示される情報セクション
  * Apple App Store審査要件を満たすため、購入前に必ず表示される
  */
-export function PurchaseInfoSection({ selectedPlan }: PurchaseInfoSectionProps) {
+export function PurchaseInfoSection({ selectedPlan, billingPeriod }: PurchaseInfoSectionProps) {
   const isIOS = Platform.OS === 'ios';
+  const [priceInfo, setPriceInfo] = useState<string | null>(null);
+  const revenueCatClient = RevenueCatClient.getInstance();
 
-  // 価格情報を取得
-  const getPriceInfo = (plan: PlanType | null): string | null => {
-    if (!plan || plan === 'free') return null;
-    if (plan === 'pro') return '1か月 100円';
-    if (plan === 'ultimate') return '1か月 500円';
-    return null;
-  };
+  // RevenueCatから価格情報を取得
+  useEffect(() => {
+    const loadPrice = async () => {
+      if (!selectedPlan || selectedPlan === 'free') {
+        setPriceInfo(null);
+        return;
+      }
+
+      try {
+        // 選択された期間（月額/年額）に応じて適切な商品IDを選択
+        const productId = billingPeriod === 'yearly'
+          ? (selectedPlan === 'pro' 
+              ? SUBSCRIPTION_PRODUCTS.PRO_YEARLY 
+              : SUBSCRIPTION_PRODUCTS.ULTIMATE_YEARLY)
+          : (selectedPlan === 'pro' 
+              ? SUBSCRIPTION_PRODUCTS.PRO_MONTHLY 
+              : SUBSCRIPTION_PRODUCTS.ULTIMATE_MONTHLY);
+
+        // RevenueCatから価格情報を取得
+        const price = revenueCatClient.getPackagePrice(productId);
+        
+        if (price) {
+          // 期間を追加して表示（例: "¥100 / 月" または "¥1,000 / 年"）
+          const periodText = billingPeriod === 'yearly' ? '年' : '月';
+          setPriceInfo(`${price} / ${periodText}`);
+        } else {
+          // RevenueCatから価格が取得できない場合のフォールバック
+          // ハードコードされた価格を使用（RevenueCatが利用できない場合）
+          const fallbackPrice = billingPeriod === 'yearly'
+            ? (selectedPlan === 'pro' ? '1,000円' : '5,000円')
+            : (selectedPlan === 'pro' ? '100円' : '500円');
+          const periodText = billingPeriod === 'yearly' ? '年' : '月';
+          setPriceInfo(`${fallbackPrice} / ${periodText}`);
+        }
+      } catch (error) {
+        // エラー時はフォールバック価格を使用
+        const fallbackPrice = billingPeriod === 'yearly'
+          ? (selectedPlan === 'pro' ? '1,000円' : '5,000円')
+          : (selectedPlan === 'pro' ? '100円' : '500円');
+        const periodText = billingPeriod === 'yearly' ? '年' : '月';
+        setPriceInfo(`${fallbackPrice} / ${periodText}`);
+      }
+    };
+
+    loadPrice();
+  }, [selectedPlan, billingPeriod, revenueCatClient]);
 
   // iOS専用の購入前情報（Apple App Store審査用）
   if (!isIOS || !selectedPlan || selectedPlan === 'free') {
     return null;
   }
-
-  const priceInfo = getPriceInfo(selectedPlan);
 
   return (
     <View style={styles.container}>

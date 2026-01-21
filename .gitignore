@@ -49,6 +49,7 @@ yarn-error.*
 
 # ワークファイル
 zzz.md
+zzz*.log
 
 # MCP設定（APIキーを含む）
 mcp.json

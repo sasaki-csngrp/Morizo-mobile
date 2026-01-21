@@ -169,6 +169,22 @@ export async function getTodayUsage(): Promise<UsageLimitInfo> {
 }
 
 /**
+ * 機密情報をマスクしてログ出力用の文字列を生成
+ * @param value マスクする値
+ * @param showLength 長さを表示するか
+ * @returns マスクされた文字列
+ */
+function maskSensitiveValue(value: string | undefined, showLength: boolean = true): string {
+  if (!value) return 'undefined';
+  if (value.length <= 30) return value.substring(0, 20) + '...';
+  const prefix = value.substring(0, 20);
+  const suffix = value.substring(value.length - 10);
+  return showLength 
+    ? `${prefix}...${suffix} (length: ${value.length})`
+    : `${prefix}...${suffix}`;
+}
+
+/**
  * サブスクリプションを更新（レシート検証含む）
  * @param request サブスクリプション更新リクエスト
  * @returns 更新結果
@@ -179,12 +195,35 @@ export async function updateSubscription(
   const timer = safeLog.timer('update-subscription');
   const apiUrl = `${getApiUrl()}/subscription/update`;
   try {
-    safeLog.info(LogCategory.API, 'サブスクリプション更新API呼び出し開始', { 
+    // リクエストボディ全体をログ出力（機密情報はマスク）
+    const requestLog = {
       url: apiUrl,
       method: 'POST',
-      product_id: request.product_id,
-      platform: request.platform 
-    });
+      request_body: {
+        product_id: request.product_id,
+        platform: request.platform,
+        purchase_token: request.purchase_token 
+          ? maskSensitiveValue(request.purchase_token)
+          : undefined,
+        receipt_data: request.receipt_data 
+          ? maskSensitiveValue(request.receipt_data)
+          : undefined,
+        package_name: request.package_name,
+        // plan_typeは送信されていないことを明示
+        plan_type: undefined,
+      },
+      // 送信フィールドの有無を明示
+      fields_sent: {
+        product_id: !!request.product_id,
+        platform: !!request.platform,
+        purchase_token: !!request.purchase_token,
+        receipt_data: !!request.receipt_data,
+        package_name: !!request.package_name,
+        plan_type: false, // モバイル側はplan_typeを送信していない
+      }
+    };
+    
+    safeLog.info(LogCategory.API, 'サブスクリプション更新API呼び出し開始', requestLog);
     
     const response = await authenticatedFetch(apiUrl, {
       method: 'POST',
@@ -198,7 +237,27 @@ export async function updateSubscription(
         url: apiUrl,
         method: 'POST',
         status: response.status, 
-        error: errorMessage 
+        error: errorMessage,
+        request_body: {
+          product_id: request.product_id,
+          platform: request.platform,
+          purchase_token: request.purchase_token 
+            ? maskSensitiveValue(request.purchase_token)
+            : undefined,
+          receipt_data: request.receipt_data 
+            ? maskSensitiveValue(request.receipt_data)
+            : undefined,
+          package_name: request.package_name,
+          plan_type: undefined,
+        },
+        fields_sent: {
+          product_id: !!request.product_id,
+          platform: !!request.platform,
+          purchase_token: !!request.purchase_token,
+          receipt_data: !!request.receipt_data,
+          package_name: !!request.package_name,
+          plan_type: false, // モバイル側はplan_typeを送信していない
+        }
       });
       timer();
       return { 
@@ -216,7 +275,27 @@ export async function updateSubscription(
       url: apiUrl,
       method: 'POST',
       status: response.status,
-      plan: data.plan 
+      request_body: {
+        product_id: request.product_id,
+        platform: request.platform,
+        purchase_token: request.purchase_token 
+          ? maskSensitiveValue(request.purchase_token)
+          : undefined,
+        receipt_data: request.receipt_data 
+          ? maskSensitiveValue(request.receipt_data)
+          : undefined,
+        package_name: request.package_name,
+        plan_type: undefined,
+      },
+      fields_sent: {
+        product_id: !!request.product_id,
+        platform: !!request.platform,
+        purchase_token: !!request.purchase_token,
+        receipt_data: !!request.receipt_data,
+        package_name: !!request.package_name,
+        plan_type: false, // モバイル側はplan_typeを送信していない
+      },
+      response_plan: data.plan 
     });
     
     timer();
@@ -229,7 +308,27 @@ export async function updateSubscription(
     safeLog.error(LogCategory.API, 'サブスクリプション更新API呼び出しエラー', { 
       url: apiUrl,
       method: 'POST',
-      error: errorMessage 
+      error: errorMessage,
+      request_body: {
+        product_id: request.product_id,
+        platform: request.platform,
+        purchase_token: request.purchase_token 
+          ? maskSensitiveValue(request.purchase_token)
+          : undefined,
+        receipt_data: request.receipt_data 
+          ? maskSensitiveValue(request.receipt_data)
+          : undefined,
+        package_name: request.package_name,
+        plan_type: undefined,
+      },
+      fields_sent: {
+        product_id: !!request.product_id,
+        platform: !!request.platform,
+        purchase_token: !!request.purchase_token,
+        receipt_data: !!request.receipt_data,
+        package_name: !!request.package_name,
+        plan_type: false, // モバイル側はplan_typeを送信していない
+      }
     });
     timer();
     return { 

@@ -22,6 +22,9 @@ import { PlanSelectionSection } from '../components/subscription/PlanSelectionSe
 import { PurchaseButton } from '../components/subscription/PurchaseButton';
 import { InfoBox } from '../components/subscription/InfoBox';
 import { PurchaseInfoSection } from '../components/subscription/PurchaseInfoSection';
+import { BillingPeriodToggle, BillingPeriod } from '../components/subscription/BillingPeriodToggle';
+import { showAlert } from '../utils/alert';
+import { PRODUCT_ID_TO_PLAN } from '../config/subscription';
 
 interface SubscriptionScreenProps {
   onClose?: () => void;
@@ -29,6 +32,7 @@ interface SubscriptionScreenProps {
 
 export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps = {}) {
   const [selectedPlan, setSelectedPlan] = useState<PlanType | null>(null);
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
   const revenueCatClient = RevenueCatClient.getInstance();
   const { user } = useAuth();
   
@@ -40,6 +44,7 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
     currentPlan,
     selectedPlan,
     setSelectedPlan,
+    billingPeriod,
     onPurchaseSuccess: (plan) => setCurrentPlan(plan),
     onLoadSubscriptionData: loadSubscriptionData,
   });
@@ -53,6 +58,85 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
       revenueCatClient.initialize();
     }
   }, [user]);
+
+  // 診断情報を表示（課金状態とDB状態の不整合を調査）
+  const showDiagnostics = async () => {
+    try {
+      const diagnostics = await revenueCatClient.getCustomerInfoDiagnostics();
+      
+      // バックエンドのプラン情報
+      const backendPlan = currentPlan?.plan_type || '取得できませんでした';
+      const backendStatus = currentPlan?.subscription_status || '取得できませんでした';
+      
+      // RevenueCatのアクティブなサブスクリプションからプランタイプを推定
+      let revenueCatPlan = 'なし';
+      if (diagnostics.activeSubscriptions.length > 0) {
+        const firstSub = diagnostics.activeSubscriptions[0];
+        // 商品IDからプランタイプを取得
+        revenueCatPlan = PRODUCT_ID_TO_PLAN[firstSub] || `不明 (${firstSub})`;
+      }
+      
+      // エンタイトルメント情報
+      let entitlementInfo = 'なし';
+      const entitlementDetails: string[] = [];
+      if (diagnostics.entitlements.pro?.isActive) {
+        entitlementDetails.push(`PRO (商品ID: ${diagnostics.entitlements.pro.productId || '不明'}, 識別子: ${diagnostics.entitlements.pro.identifier || 'pro'})`);
+      }
+      if (diagnostics.entitlements.ultimate?.isActive) {
+        entitlementDetails.push(`ULTIMATE (商品ID: ${diagnostics.entitlements.ultimate.productId || '不明'}, 識別子: ${diagnostics.entitlements.ultimate.identifier || 'ultimate'})`);
+      }
+      if (entitlementDetails.length > 0) {
+        entitlementInfo = entitlementDetails.join('\n');
+      }
+      
+      // 不整合の検出
+      const hasActiveSubscriptions = diagnostics.activeSubscriptions.length > 0;
+      const isBackendActive = backendStatus === 'active';
+      const isBackendExpired = backendStatus === 'expired' || backendStatus === 'cancelled';
+      
+      const mismatches: string[] = [];
+      
+      // 1. プランタイプの不一致
+      if (backendPlan !== revenueCatPlan && revenueCatPlan !== 'なし' && backendPlan !== '取得できませんでした') {
+        mismatches.push(`プランタイプ: バックエンド(${backendPlan}) vs RevenueCat(${revenueCatPlan})`);
+      }
+      
+      // 2. ステータスの不一致: バックエンドがexpiredなのにRevenueCatにアクティブなサブスクリプションがある
+      if (isBackendExpired && hasActiveSubscriptions) {
+        mismatches.push(`ステータス: バックエンド(${backendStatus})なのに、RevenueCatにアクティブなサブスクリプションがあります`);
+      }
+      
+      // 3. ステータスの不一致: バックエンドがactiveなのにRevenueCatにアクティブなサブスクリプションがない
+      if (isBackendActive && !hasActiveSubscriptions) {
+        mismatches.push(`ステータス: バックエンド(${backendStatus})なのに、RevenueCatにアクティブなサブスクリプションがありません`);
+      }
+      
+      const mismatchMessage = mismatches.length > 0
+        ? `⚠️ 以下の不整合が見つかりました:\n${mismatches.map(m => `  • ${m}`).join('\n')}`
+        : '✅ 不整合は見つかりませんでした';
+      
+      const message = [
+        '【診断情報】',
+        '',
+        '【バックエンド（DB）】',
+        `プランタイプ: ${backendPlan}`,
+        `ステータス: ${backendStatus}`,
+        '',
+        '【RevenueCat（課金状態）】',
+        `アクティブなサブスクリプション: ${diagnostics.activeSubscriptions.length > 0 ? diagnostics.activeSubscriptions.join(', ') : 'なし'}`,
+        `推定プランタイプ: ${revenueCatPlan}`,
+        `エンタイトルメント:`,
+        entitlementInfo !== 'なし' ? entitlementInfo : '  なし',
+        '',
+        '【不整合の可能性】',
+        mismatchMessage,
+      ].join('\n');
+      
+      showAlert('診断情報', message);
+    } catch (error: any) {
+      showAlert('診断エラー', `診断情報の取得に失敗しました: ${error.message}`);
+    }
+  };
 
   return (
     <Modal
@@ -87,6 +171,14 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
             onPlanSelect={setSelectedPlan}
           />
           
+          {/* 月額・年額の切り替えUI（プランが選択されている場合のみ表示） */}
+          {selectedPlan && selectedPlan !== 'free' && (
+            <BillingPeriodToggle
+              selectedPeriod={billingPeriod}
+              onPeriodChange={setBillingPeriod}
+            />
+          )}
+          
           {selectedPlan && (() => {
             // サブスクリプションが有効かどうかを判定
             const isActive = currentPlan?.subscription_status === 'active';
@@ -97,7 +189,10 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
             return shouldShowPurchaseButton ? (
               <>
                 {/* iOS専用: 購入ボタンの上に必須情報を表示（Apple審査要件） */}
-                <PurchaseInfoSection selectedPlan={selectedPlan} />
+                <PurchaseInfoSection 
+                  selectedPlan={selectedPlan} 
+                  billingPeriod={billingPeriod}
+                />
                 <PurchaseButton
                   selectedPlan={selectedPlan}
                   isPurchasing={isPurchasing}
@@ -111,6 +206,14 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
           })()}
           
           {!selectedPlan && <InfoBox />}
+
+        {/* 診断ボタン（開発用） */}
+        <TouchableOpacity
+          style={styles.diagnosticButton}
+          onPress={showDiagnostics}
+        >
+          <Text style={styles.diagnosticButtonText}>🔍 診断情報を表示</Text>
+        </TouchableOpacity>
 
         {/* Expo Go環境での注意メッセージ */}
         {revenueCatClient.getIsExpoGo() && (
@@ -187,6 +290,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#374151',
+  },
+  diagnosticButton: {
+    marginTop: 16,
+    marginBottom: 8,
+    padding: 12,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    alignItems: 'center',
+  },
+  diagnosticButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1E40AF',
   },
 });
 

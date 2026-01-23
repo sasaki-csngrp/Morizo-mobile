@@ -10,8 +10,9 @@ interface PurchaseInfoSectionProps {
 }
 
 /**
- * iOS専用: 購入ボタンの上に表示される情報セクション
- * Apple App Store審査要件を満たすため、購入前に必ず表示される
+ * 購入ボタンの上に表示される情報セクション
+ * - Android/iOS共通: 金額及び期間表示、「この期間中、記載のすべての機能が利用可能です。」のメッセージ
+ * - iOS専用: 利用規約、プライバシーポリシーへのリンク（Apple App Store審査要件）
  */
 export function PurchaseInfoSection({ selectedPlan, billingPeriod }: PurchaseInfoSectionProps) {
   const isIOS = Platform.OS === 'ios';
@@ -65,29 +66,30 @@ export function PurchaseInfoSection({ selectedPlan, billingPeriod }: PurchaseInf
     loadPrice();
   }, [selectedPlan, billingPeriod, revenueCatClient]);
 
-  // iOS専用の購入前情報（Apple App Store審査用）
-  if (!isIOS || !selectedPlan || selectedPlan === 'free') {
+  // プランが選択されていない場合は表示しない
+  if (!selectedPlan || selectedPlan === 'free') {
     return null;
   }
 
   return (
     <View style={styles.container}>
-      {/* サブスクリプションの期間と価格 */}
+      {/* サブスクリプションの期間と価格（Android/iOS共通） */}
       {priceInfo && (
         <View style={styles.priceSection}>
           <Text style={styles.priceText}>{priceInfo}</Text>
         </View>
       )}
 
-      {/* 提供されるサービス内容の再明記 */}
+      {/* 提供されるサービス内容の再明記（Android/iOS共通） */}
       <View style={styles.serviceSection}>
         <Text style={styles.serviceText}>
           この期間中、記載のすべての機能が利用可能です。
         </Text>
       </View>
 
-      {/* 利用規約とプライバシーポリシーへのリンク */}
-      <View style={styles.links}>
+      {/* 利用規約とプライバシーポリシーへのリンク（iOS専用） */}
+      {isIOS && (
+        <View style={styles.links}>
         <Text 
           style={styles.link}
           onPress={() => Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}
@@ -102,6 +104,7 @@ export function PurchaseInfoSection({ selectedPlan, billingPeriod }: PurchaseInf
           プライバシーポリシー
         </Text>
       </View>
+      )}
     </View>
   );
 }

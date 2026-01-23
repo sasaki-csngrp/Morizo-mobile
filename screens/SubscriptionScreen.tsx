@@ -188,7 +188,7 @@ export default function SubscriptionScreen({ onClose }: SubscriptionScreenProps 
             
             return shouldShowPurchaseButton ? (
               <>
-                {/* iOS専用: 購入ボタンの上に必須情報を表示（Apple審査要件） */}
+                {/* 購入ボタンの上に必須情報を表示（Android/iOS共通: 金額・期間・メッセージ、iOS専用: 利用規約・プライバシーポリシー） */}
                 <PurchaseInfoSection 
                   selectedPlan={selectedPlan} 
                   billingPeriod={billingPeriod}

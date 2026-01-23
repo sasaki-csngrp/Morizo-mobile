@@ -139,11 +139,6 @@ EAS Dashboardで環境変数を設定します：
 **重要**: `production`プロファイルはデフォルトで**AABファイル**を生成します。直接インストールする場合は**APKファイル**が必要です。
 
 ```bash
-# APKファイル（直接インストール用）
-# production-apkプロファイルを使用
-npx expo-doctor
-eas build --platform android --profile production-apk
-
 # AABファイル（Google Play Store提出用）
 # productionプロファイルを使用（デフォルトでAABを生成）
 npx expo-doctor
